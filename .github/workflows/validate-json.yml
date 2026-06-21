@@ -13,4 +13,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate JSON files
         run: |
-          find . -name '*.json' -not -path './.git/*' | xargs -I{} sh -c 'python3 -m json.tool {} > /dev/null && echo "OK: {}" || exit 1'
+          find . -name '*.json' -not -path './.git/*' -print0 | while IFS= read -r -d '' f; do
+            python3 -m json.tool "$f" > /dev/null && echo "OK: $f" || exit 1
+          done
