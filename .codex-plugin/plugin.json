@@ -12,7 +12,7 @@
     "baz": {
       "type": "http",
       "url": "https://mcp.baz.co/mcp",
-      "envHttpHeaders": {
+      "env_http_headers": {
         "x-session-id": "CODEX_SESSION_ID"
       }
     }
