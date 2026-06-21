@@ -1,0 +1,15 @@
+{
+  "name": "baz",
+  "version": "0.1.0",
+  "description": "Baz codebase exploration — indexed search across your org's repos via MCP.",
+  "author": { "name": "Baz", "url": "https://baz.co" },
+  "homepage": "https://github.com/baz-scm/baz-plugin",
+  "repository": "https://github.com/baz-scm/baz-plugin",
+  "license": "MIT",
+  "mcpServers": {
+    "baz": {
+      "type": "http",
+      "url": "https://mcp.baz.co/mcp"
+    }
+  }
+}

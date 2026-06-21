@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "baz",
+  "description": "Baz tools for Claude Code.",
+  "owner": { "name": "Baz", "url": "https://baz.co" },
+  "plugins": [
+    {
+      "name": "baz",
+      "description": "Codebase exploration skill + Baz MCP server (indexed grep, file-glob, cross-repo search).",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
