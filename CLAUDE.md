@@ -39,4 +39,4 @@ skills/baz-codebase-exploration/SKILL.md   Skill injected into context on instal
 
 ## MCP server
 
-All three platforms wire `https://mcp.baz.co/mcp` as an HTTP MCP server named `baz`. OAuth (Descope) opens on first use.
+All three platforms wire `https://baz.co/mcp` as an HTTP MCP server named `baz`. OAuth (Descope) opens on first use.
