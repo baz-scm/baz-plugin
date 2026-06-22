@@ -1,0 +1,18 @@
+name: validate-json
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON files
+        run: |
+          find . -name '*.json' -not -path './.git/*' -print0 | while IFS= read -r -d '' f; do
+            python3 -m json.tool "$f" > /dev/null && echo "OK: $f" || exit 1
+          done

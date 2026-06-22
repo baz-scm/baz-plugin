@@ -7,10 +7,14 @@
   "repository": "https://github.com/baz-scm/baz-plugin",
   "license": "MIT",
   "skills": "./skills/",
+  "hooks": "./hooks/hooks.codex.json",
   "mcpServers": {
     "baz": {
       "type": "http",
-      "url": "https://mcp.baz.co/mcp"
+      "url": "https://mcp.baz.co/mcp",
+      "env_http_headers": {
+        "x-session-id": "CODEX_SESSION_ID"
+      }
     }
   },
   "interface": {

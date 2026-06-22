@@ -6,12 +6,15 @@
   "homepage": "https://github.com/baz-scm/baz-plugin",
   "repository": "https://github.com/baz-scm/baz-plugin",
   "license": "MIT",
+  "skills": "./skills/",
+  "rules": "./.cursor/rules/",
+  "hooks": "./hooks/hooks.cursor.json",
   "mcpServers": {
     "baz": {
       "type": "http",
       "url": "https://mcp.baz.co/mcp",
       "headers": {
-        "x-session-id": "${CLAUDE_SESSION_ID}"
+        "x-session-id": "${env:CURSOR_SESSION_ID}"
       }
     }
   }

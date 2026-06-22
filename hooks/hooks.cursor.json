@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "mcp__baz__",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/post-tool-use.js\""
+      }
+    ],
+    "stop": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/session-end.js\""
+      }
+    ]
+  }
+}
