@@ -24,7 +24,7 @@ This skill helps you plan a feature against repos the user has not cloned locall
 
 | Job | Tool |
 |---|---|
-| Find which repos are involved | `cross_repo_search` (Baz) |
+| Find which repos are involved | `repo_search` (Baz) |
 | Find code by symbol / regex inside a repo | `remote_grep` (Baz) |
 | Find files by name / glob inside a repo | `remote_file_search` (Baz) |
 | Read a specific file you already know the path of | `gh api repos/<owner>/<repo>/contents/<path>` |
@@ -40,15 +40,15 @@ This skill helps you plan a feature against repos the user has not cloned locall
 
 ### Step 1: Orient (once)
 
-If the user has not told you which repo(s) to look in, call `cross_repo_search` **exactly once** with broad keywords:
+If the user has not told you which repo(s) to look in, call `repo_search` **exactly once** with broad keywords:
 
 ```text
-cross_repo_search(keywords: ["<topic>", "<topic synonym>"], domains?: ["API", "BUSINESS_LOGIC", ...])
+repo_search(keywords: ["<topic>", "<topic synonym>"], domains?: ["API", "BUSINESS_LOGIC", ...])
 ```
 
 Read the returned `{repoId, repoName, domain, summary}` entries and pick the most likely repos using your own judgement (results are not LLM-ranked).
 
-**If the result is empty or too large**, do **not** re-call `cross_repo_search` with rephrased keywords. Instead:
+**If the result is empty or too large**, do **not** re-call `repo_search` with rephrased keywords. Instead:
 - For empty: pick a likely repo by name and skip to Step 2.
 - For too-large (`exceeds maximum allowed tokens`): re-call **once** with a `domains` filter to narrow scope.
 
@@ -96,5 +96,5 @@ Based on what you found, propose:
 ## Things to avoid
 
 - Do **not** ask the user to clone repos for you.
-- Do **not** re-query `cross_repo_search` with rephrased keywords. One call, then pick a repo.
+- Do **not** re-query `repo_search` with rephrased keywords. One call, then pick a repo.
 - Do **not** run `remote_file_search` and `gh` tree-listing for the same directory.

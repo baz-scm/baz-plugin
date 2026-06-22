@@ -1,6 +1,6 @@
 # Baz Plugin
 
-The Baz plugin adds three indexed search tools to your agent — `cross_repo_search`, `remote_grep`, and `remote_file_search` — and a skill that routes searches through Baz while keeping reads on `gh` / `glab`.
+The Baz plugin adds three indexed search tools to your agent — `repo_search`, `remote_grep`, and `remote_file_search` — and a skill that routes searches through Baz while keeping reads on `gh` / `glab`.
 
 Designed for planning features against repositories you haven't checked out locally. Indexed search across the whole org, no clone, no rate limits.
 
@@ -42,7 +42,7 @@ Cursor doesn't auto-install MCP servers. Two manual steps:
 
 ## What you get
 
-- **`cross_repo_search(keywords, domains?)`** — semantic search across architecture summaries of every repo in your org. No `gh` equivalent.
+- **`repo_search(keywords, domains?)`** — semantic search across indexed architecture summaries. Works across every repo in your org, and across the per-domain summaries of a single large monorepo. No `gh` equivalent.
 - **`remote_grep(repository, pattern, path)`** — indexed regex grep inside one repo, scoped to a path. ~2 lines of context per match.
 - **`remote_file_search(repository, pattern)`** — glob file-name search inside one repo. Useful when you have a naming hunch but not the exact path.
 
