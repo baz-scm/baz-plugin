@@ -9,10 +9,12 @@ Designed for planning features against repositories you haven't checked out loca
 ### Claude Code
 
 ```bash
-/plugin install baz-scm/baz-plugin@main
+/plugin marketplace add baz-scm/baz-plugin
+/plugin add baz
+/reload-plugins
 ```
 
-Claude Code reads `.claude-plugin/plugin.json`, loads `skills/baz-codebase-exploration/SKILL.md`, and registers the Baz MCP server. First time you use a Baz tool, your browser opens for OAuth (Descope) — log in with your Baz account.
+Claude Code reads `.claude-plugin/marketplace.json`, `.claude-plugin/plugin.json`, loads `skills/baz-codebase-exploration/SKILL.md`, and registers the Baz MCP server and hook. First time you use a Baz tool, your browser opens for OAuth (Descope) — log in with your Baz account.
 
 ### OpenAI Codex CLI
 
@@ -33,7 +35,7 @@ Cursor doesn't auto-install MCP servers. Two manual steps:
      "mcpServers": {
        "baz": {
          "type": "http",
-         "url": "https://mcp.baz.co/mcp"
+         "url": "https://baz.co/mcp"
        }
      }
    }
