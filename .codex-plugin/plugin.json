@@ -1,8 +1,11 @@
 {
   "name": "baz",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Baz codebase exploration — indexed search across your org's repos via MCP.",
-  "author": { "name": "Baz", "url": "https://baz.co" },
+  "author": {
+    "name": "Baz",
+    "url": "https://baz.co"
+  },
   "homepage": "https://github.com/baz-scm/baz-plugin",
   "repository": "https://github.com/baz-scm/baz-plugin",
   "license": "MIT",
@@ -22,6 +25,9 @@
     "shortDescription": "Indexed code search across your org.",
     "longDescription": "Baz adds three indexed search tools (cross_repo_search, remote_grep, remote_file_search) for planning features against repos you haven't checked out. Includes the codebase-exploration skill that routes search to Baz and reads to gh / glab.",
     "category": "Productivity",
-    "capabilities": ["Instructions", "MCP server"]
+    "capabilities": [
+      "Instructions",
+      "MCP server"
+    ]
   }
 }
