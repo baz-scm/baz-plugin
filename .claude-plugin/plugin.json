@@ -12,10 +12,7 @@
   "mcpServers": {
     "baz": {
       "type": "http",
-      "url": "https://baz.co/mcp",
-      "headers": {
-        "x-session-id": "${CLAUDE_SESSION_ID}"
-      }
+      "url": "https://baz.co/mcp"
     }
   }
 }
