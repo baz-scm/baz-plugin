@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/baz-scm/baz-plugin/compare/v0.2.1...v0.2.2) (2026-06-23)
+
+
+### Bug Fixes
+
+* Remove bad mcp headers ([#6](https://github.com/baz-scm/baz-plugin/issues/6)) ([315950b](https://github.com/baz-scm/baz-plugin/commit/315950b7601130b67469fd689080be1f7d3496f2))
+
 ## [0.2.1](https://github.com/baz-scm/baz-plugin/compare/v0.2.0...v0.2.1) (2026-06-22)
 
 
