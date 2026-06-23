@@ -14,10 +14,7 @@
   "mcpServers": {
     "baz": {
       "type": "http",
-      "url": "https://baz.co/mcp",
-      "env_http_headers": {
-        "x-session-id": "CODEX_SESSION_ID"
-      }
+      "url": "https://baz.co/mcp"
     }
   },
   "interface": {
