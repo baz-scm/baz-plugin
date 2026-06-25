@@ -17,9 +17,23 @@ hooks/
   hooks.codex.json              Codex hooks: PostToolUse + Stop, ${CODEX_PLUGIN_DIR}
   hooks.cursor.json             Cursor hooks: postToolUse + stop, ${CURSOR_PLUGIN_ROOT}
 
-skills/baz-codebase-exploration/SKILL.md   Skill injected into context on install
-.cursor/rules/baz-codebase-exploration.mdc Same skill, Cursor rules format
+skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
+skills/plan-with-baz/SKILL.md              Task skill: manual /baz:plan-with-baz planning command
+.cursor/rules/baz-codebase-exploration.mdc Reference skill, Cursor rules format (always-apply)
 ```
+
+## Skills
+
+Two skills, by type:
+
+- **`baz-codebase-exploration`** — *reference* content. Auto-loaded; the tool-routing rules + search budget. Also mirrored as a Cursor always-apply rule (`.cursor/rules/*.mdc`).
+- **`plan-with-baz`** — *task* content. Manually invoked as `/baz:plan-with-baz` (`disable-model-invocation: true` so Claude won't auto-trigger it). Enters plan mode per-harness, explores via Baz, and emits a plan in a fixed section schema. It defers the detailed routing rules to `baz-codebase-exploration` rather than forking the table.
+
+Both live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. The `plan-with-baz` skill is on-demand, so it has **no** `.cursor/rules/*.mdc` mirror (rules are always-apply).
+
+### Plan output schema (Tier-3 contract)
+
+`plan-with-baz` emits a fixed set of sections, in order: **Context · Affected repos & files · Change sequence · Cross-repo coordination · Open questions · Verification**. Keep these headings stable — a future "share / push to Baz" step (rendering plans in the Baz product) will parse them.
 
 ## Hook counter mechanics
 
