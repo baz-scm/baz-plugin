@@ -33,7 +33,7 @@ Both live under `skills/` and ship to all three platforms with no manifest chang
 
 ### Plan output schema (Tier-3 contract)
 
-`plan-with-baz` emits a fixed set of sections, in order: **Context · Affected repos & files · Change sequence · Cross-repo coordination · Open questions · Verification**. Keep these headings stable — a future "share / push to Baz" step (rendering plans in the Baz product) will parse them.
+`plan-with-baz` emits a fixed set of sections, **always all of them, in order**: **Context · Affected repos & files · Change sequence · Diagrams · Cross-repo coordination · Open questions · Verification**. Empty sections render as `_None._` rather than being dropped, so the heading order is stable across runs. Diagrams are inline ```mermaid``` blocks (ERD for data-model changes, flow/sequence for non-trivial flows). Keep these headings stable — a future "share / push to Baz" step (rendering plans in the Baz product) will parse them.
 
 ## Hook counter mechanics
 

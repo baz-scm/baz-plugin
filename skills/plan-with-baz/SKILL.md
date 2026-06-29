@@ -14,7 +14,7 @@ license: MIT
 
 You were invoked explicitly to plan a piece of work using Baz's indexed search. The work to plan is in `$ARGUMENTS` (if empty, ask the user what they want to plan).
 
-This is a **read-only** procedure. Do not edit files, run mutating commands, or start implementing until the user approves the plan.
+This is a **read-only** procedure. Do not edit project files, run mutating commands, or start implementing until the user approves the plan. The only write allowed before approval is the plan document itself (see Step 3).
 
 ## Step 1: Enter plan mode
 
@@ -39,10 +39,18 @@ Baz MCP tools replace `gh` / `glab` for *search*; use `gh` / `glab` only to read
 
 ## Step 3: Write the plan
 
-Produce the plan in the fixed schema below — always these sections, in this order. On Claude Code, write it to the plan file plan mode gives you; on other harnesses, write it to `baz-plan.md` in the working directory.
+Produce the plan in the fixed schema below — **always emit every section heading, in this order**, even when a section is empty (write `_None._` rather than dropping the heading). The stable shape is the contract a future "share / push to Baz" step will parse.
+
+Where to put it:
+- **Claude Code**: write it to the plan file plan mode gives you (writing that file is what plan mode is for).
+- **Cursor / Codex** (no plan file): present the plan inline in your response. Do **not** write a file before approval. After the user approves, save it to `baz-plan.md` if they want it persisted.
+
+Add diagrams alongside the prose where they clarify the change — Markdown ```mermaid``` blocks render in all three harnesses:
+- an **ERD** (`erDiagram`) when the change touches a data model / schema;
+- a **flow or sequence diagram** when the change introduces a non-trivial control or data flow.
 
 ```markdown
-# Plan: <title>
+# <title>
 
 ## Context
 Why this change is being made — the problem, what prompted it, the intended outcome.
@@ -54,8 +62,11 @@ Why this change is being made — the problem, what prompted it, the intended ou
 ## Change sequence
 1. Ordered steps to implement.
 
+## Diagrams
+ERD for data-model changes and/or a flow/sequence diagram for non-trivial flows, as ```mermaid``` blocks. `_None._` if neither applies.
+
 ## Cross-repo coordination
-Anything that must land together across repos. Omit if single-repo.
+Anything that must land together across repos. `_None — single-repo change._` if not applicable.
 
 ## Open questions
 Things the user should decide before implementation begins.
@@ -63,8 +74,6 @@ Things the user should decide before implementation begins.
 ## Verification
 How to test the change end-to-end (run the code, MCP tools, tests).
 ```
-
-Keep these section headings stable and exact — they are the contract a future "share / push to Baz" step will parse.
 
 ## Step 4: Get approval
 
