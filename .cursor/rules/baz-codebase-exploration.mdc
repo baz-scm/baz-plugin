@@ -97,3 +97,11 @@ Based on what you found, propose:
 - Do **not** re-query `repo_search` with rephrased keywords. One call, then pick a repo.
 - Do **not** run `remote_file_search` and `gh` tree-listing for the same directory.
 - Do **not** delegate this exploration to a generic or local-only subagent (e.g. a plain `Explore` agent) — it silently falls back to local Read/Grep and skips Baz. If you spawn a subagent and the work reaches code outside the local checkout (another repo, or the side of a contract you don't own), its prompt **must** tell it to use the Baz MCP tools (`repo_search` / `remote_grep` / `remote_file_search`) per this rule's routing.
+
+## Session tracking — required
+
+The baz plugin's `sessionStart` hook injects your `sessionId` and the cwd repo (`sessionRepository`) into your context. **You MUST pass both as arguments on every call to `repo_search`, `remote_grep`, and `remote_file_search`.** Without them, baz cannot correlate your tool calls to a session and the calls are dropped from baz's timeline. This is non-negotiable — treat the values as required, not optional, regardless of what the tool schema marks them as.
+
+### Closing the session — required at end of planning
+
+When you've finished planning and are ready to present the plan to the user, **write the final plan to `/tmp/.baz-plan-<sessionId>.md`** (substitute your real sessionId). A `postToolUse` hook watches for that exact path and will immediately inject a follow-up instruction telling you to call `mcp__baz__complete_session`. **Your next tool call after writing the file MUST be `mcp__baz__complete_session`** (fully qualified — not `complete_session` alone, which is not a callable tool name); pass the `sessionId` and the `completedAt` timestamp from the hook's instruction. Don't respond to the user or run any other tool in between. Skipping this leaves the session open in baz's timeline forever. Call it exactly once per planning session.
