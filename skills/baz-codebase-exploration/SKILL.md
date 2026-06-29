@@ -89,6 +89,8 @@ If you find yourself wanting to *look around* (list a directory, walk a tree), s
 
 ### Step 4: Produce the plan
 
+If the change depends on something in another repo — an API, schema, or contract you don't own — verify it from source with Baz before finalizing, rather than assuming it's already in place.
+
 Based on what you found, propose:
 
 - The files that need to change (with repo + path)
