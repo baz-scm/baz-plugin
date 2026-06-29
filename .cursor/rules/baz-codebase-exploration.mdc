@@ -5,13 +5,14 @@ alwaysApply: true
 
 # Baz Codebase Exploration
 
-This rule applies when planning a feature against repos that are not cloned locally. **Baz MCP tools replace `gh` / `glab` for code search.** Use `gh` / `glab` only to read a specific file once you already know its path.
+This rule applies when planning a change across your org's repos. It applies whether or not the relevant repos are cloned locally — and **especially when a change crosses a contract boundary between repos**: you edit one side, another repo defines the other. **Baz MCP tools replace `gh` / `glab` for code search.** Use `gh` / `glab` only to read a specific file once you already know its path.
 
 ## When this rule fires
 
 - The user asks to plan a feature, scope a change, or design an implementation
-- The relevant code lives in repos the user has not cloned locally
 - The change might touch more than one repository in the org
+- You own one side of a cross-repo contract (API param, request/response schema, event payload) — **even when that side is checked out locally**
+- The relevant code lives in repos the user has not cloned locally
 
 ## Tool routing — strict
 
@@ -91,3 +92,4 @@ Based on what you found, propose:
 - Do **not** ask the user to clone repos for you.
 - Do **not** re-query `repo_search` with rephrased keywords. One call, then pick a repo.
 - Do **not** run `remote_file_search` and `gh` tree-listing for the same directory.
+- Do **not** delegate this exploration to a generic or local-only subagent (e.g. a plain `Explore` agent) — it silently falls back to local Read/Grep and skips Baz. If you spawn a subagent and the work reaches code outside the local checkout (another repo, or the side of a contract you don't own), its prompt **must** tell it to use the Baz MCP tools (`repo_search` / `remote_grep` / `remote_file_search`) per this rule's routing.
