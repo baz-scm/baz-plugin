@@ -40,7 +40,7 @@ If the user has not told you which repo(s) to look in, call `repo_search` **exac
 repo_search(keywords: ["<topic>", "<topic synonym>"], domains?: ["API", "BUSINESS_LOGIC", ...])
 ```
 
-Read the returned `{repoId, repoName, domain, summary}` entries and pick the most likely repos using your own judgement (results are not LLM-ranked).
+Read the returned `{repoId, repoName, domain, summary}` entries and pick the most likely repos using your own judgement (results are not LLM-ranked). Use that identifier **verbatim** in later tools — don't guess `repository` from a local folder or service name (the index may name it differently), and note a service is often indexed as a subdirectory of a larger repo, so prefix `path` accordingly.
 
 **If the result is empty or too large**, do **not** re-call `repo_search` with rephrased keywords. Instead:
 - For empty: pick a likely repo by name and skip to Step 2.
