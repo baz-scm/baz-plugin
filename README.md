@@ -48,7 +48,23 @@ Cursor doesn't auto-install MCP servers. Two manual steps:
 - **`remote_grep(repository, pattern, path)`** — indexed regex grep inside one repo, scoped to a path. ~2 lines of context per match.
 - **`remote_file_search(repository, pattern)`** — glob file-name search inside one repo. Useful when you have a naming hunch but not the exact path.
 
-The skill teaches the agent when to use which, and to stop searching and start reading once it has a hit.
+The `baz-codebase-exploration` skill teaches the agent when to use which, and to stop searching and start reading once it has a hit. It loads automatically when relevant.
+
+## Planning command
+
+The plugin also ships a manually-invoked planning command, **`/baz:plan-with-baz`**. Run it with a short description of what you want to build:
+
+```text
+/baz:plan-with-baz add rate limiting to the public API
+```
+
+It enters plan mode (where the harness supports it), explores the relevant repos with the Baz tools — including repos you haven't checked out — and writes a structured implementation plan you approve before any code is written.
+
+| Platform | How to invoke | Plan mode |
+|---|---|---|
+| Claude Code | `/baz:plan-with-baz <description>` | enters plan mode automatically (one-click confirm) |
+| Cursor | `/plan-with-baz <description>` | prompts you to switch to Plan mode |
+| Codex | invoke the `plan-with-baz` skill | runs read-only, no writes until you approve |
 
 ## License
 

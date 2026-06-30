@@ -3,22 +3,25 @@ name: baz-codebase-exploration
 description: >
   Procedure for exploring repositories with Baz's indexed search tools.
   Use when asked to plan a feature, design a change, scope work, or
-  investigate where to make changes — especially when the relevant
-  repositories are not checked out locally. Baz's MCP tools replace
-  `gh` / `glab` for code search across the org; `gh` / `glab` are only
-  for reading specific files once you know the path.
+  investigate where to make changes across the org's repos. Applies even
+  when you own one side of a cross-repo contract (API param, schema, event
+  payload) locally, and especially when the relevant repositories are not
+  checked out locally. Baz's MCP tools replace `gh` / `glab` for code search
+  across the org; `gh` / `glab` are only for reading specific files once you
+  know the path.
 license: MIT
 ---
 
 # Baz Codebase Exploration
 
-This skill helps you plan a feature against repos the user has not cloned locally. **Baz MCP tools replace `gh` / `glab` for code search.** Use `gh` / `glab` only to read a specific file once you already know its path.
+This skill helps you plan a change across your org's repos using indexed search. It applies whether or not the relevant repos are checked out locally — and **especially when a change crosses a contract boundary between repos**: you edit one side, another repo defines the other. **Baz MCP tools replace `gh` / `glab` for code search.** Use `gh` / `glab` only to read a specific file once you already know its path.
 
 ## When to use this skill
 
 - The user asks to plan a feature, scope a change, or design an implementation
-- The relevant code lives in repos the user has not cloned locally
 - The change might touch more than one repository in the org
+- You own one side of a cross-repo contract (API param, request/response schema, event payload) — **even when that side is checked out locally**
+- The relevant code lives in repos the user has not cloned locally
 
 ## Tool routing — strict
 
@@ -46,7 +49,7 @@ If the user has not told you which repo(s) to look in, call `repo_search` **exac
 repo_search(keywords: ["<topic>", "<topic synonym>"], domains?: ["API", "BUSINESS_LOGIC", ...])
 ```
 
-Read the returned `{repoId, repoName, domain, summary}` entries and pick the most likely repos using your own judgement (results are not LLM-ranked).
+Read the returned `{repoId, repoName, domain, summary}` entries and pick the most likely repos using your own judgement (results are not LLM-ranked). Use that identifier **verbatim** in later tools — don't guess `repository` from a local folder or service name (the index may name it differently), and note a service is often indexed as a subdirectory of a larger repo, so prefix `path` accordingly.
 
 **If the result is empty or too large**, do **not** re-call `repo_search` with rephrased keywords. Instead:
 - For empty: pick a likely repo by name and skip to Step 2.
@@ -86,6 +89,8 @@ If you find yourself wanting to *look around* (list a directory, walk a tree), s
 
 ### Step 4: Produce the plan
 
+If the change depends on something in another repo — an API, schema, or contract you don't own — verify it from source with Baz before finalizing, rather than assuming it's already in place.
+
 Based on what you found, propose:
 
 - The files that need to change (with repo + path)
@@ -98,3 +103,4 @@ Based on what you found, propose:
 - Do **not** ask the user to clone repos for you.
 - Do **not** re-query `repo_search` with rephrased keywords. One call, then pick a repo.
 - Do **not** run `remote_file_search` and `gh` tree-listing for the same directory.
+- Do **not** delegate this exploration to a generic or local-only subagent (e.g. a plain `Explore` agent) — it silently falls back to local Read/Grep and skips Baz. If you spawn a subagent and the work reaches code outside the local checkout (another repo, or the side of a contract you don't own), its prompt **must** tell it to use the Baz MCP tools (`repo_search` / `remote_grep` / `remote_file_search`) per this skill's routing rules.

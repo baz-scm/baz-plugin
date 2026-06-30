@@ -2,3 +2,6 @@
 .idea/
 .vscode/
 *.log
+
+# local plugin/skill testing
+.claude/
