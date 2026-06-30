@@ -1,5 +1,15 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/session-start.js\""
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "mcp__baz__",
@@ -7,6 +17,15 @@
           {
             "type": "command",
             "command": "node \"${CODEX_PLUGIN_DIR}/hooks/post-tool-use.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "apply_patch|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/plan-complete.js\""
           }
         ]
       }
