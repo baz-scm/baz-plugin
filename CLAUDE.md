@@ -33,7 +33,7 @@ Both live under `skills/` and ship to all three platforms with no manifest chang
 
 ### Plan output schema (Tier-3 contract)
 
-`plan-with-baz` emits a fixed set of sections, **always all of them, in order**: **Context · Affected repos & files · Change sequence · Diagrams · Cross-repo coordination · Open questions · Verification**. Empty sections render as `_None._` rather than being dropped, so the heading order is stable across runs. Diagrams are inline ```mermaid``` blocks (ERD for data-model changes, flow/sequence for non-trivial flows). Keep these headings stable — a future "share / push to Baz" step (rendering plans in the Baz product) will parse them.
+`plan-with-baz` emits a plan in a fixed, ordered section schema — the canonical definition is the Step 3 template in `skills/plan-with-baz/SKILL.md`. Every heading is always emitted in order (empty sections render as `_None._`), and diagrams are inline ```mermaid``` blocks. Keep that template stable — a future "share / push to Baz" step (rendering plans in the Baz product) will parse these headings. Edit the schema in the skill, not here.
 
 ## Hook counter mechanics
 

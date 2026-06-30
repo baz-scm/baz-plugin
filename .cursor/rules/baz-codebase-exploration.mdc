@@ -3,6 +3,8 @@ description: Baz codebase exploration — use indexed grep, file-glob, and repo-
 alwaysApply: true
 ---
 
+<!-- Mirror of skills/baz-codebase-exploration/SKILL.md (Cursor rules format). Keep the two in sync when editing. -->
+
 # Baz Codebase Exploration
 
 This rule applies when planning a change across your org's repos. It applies whether or not the relevant repos are cloned locally — and **especially when a change crosses a contract boundary between repos**: you edit one side, another repo defines the other. **Baz MCP tools replace `gh` / `glab` for code search.** Use `gh` / `glab` only to read a specific file once you already know its path.
