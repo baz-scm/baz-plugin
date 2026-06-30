@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/baz-scm/baz-plugin/compare/v0.2.2...v0.3.0) (2026-06-30)
+
+
+### Features
+
+* add /baz:plan-with-baz planning command skill ([#8](https://github.com/baz-scm/baz-plugin/issues/8)) ([6248068](https://github.com/baz-scm/baz-plugin/commit/6248068161f4c963e7981f92afaf1462ba1ec064))
+* **planner:** CR-4545 Add 2 more hooks to extract session and repo and send session complete ([#9](https://github.com/baz-scm/baz-plugin/issues/9)) ([ecb40b6](https://github.com/baz-scm/baz-plugin/commit/ecb40b6ab92a048acfda64f6e064bbf9910fbf88))
+
 ## [0.2.2](https://github.com/baz-scm/baz-plugin/compare/v0.2.1...v0.2.2) (2026-06-23)
 
 
