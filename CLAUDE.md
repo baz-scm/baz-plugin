@@ -17,7 +17,7 @@ hooks/
 
   hooks.json                    CC hooks: SessionStart + PostToolUse (mcp__baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
   hooks.codex.json              Codex hooks: SessionStart + PostToolUse (mcp__baz__ + apply_patch|Write|Edit) + Stop, ${CODEX_PLUGIN_DIR}
-  hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop, ${CURSOR_PLUGIN_ROOT}
+  hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only). No session-end wiring — Cursor's validator does not accept `sessionEnd`; see Hook counter mechanics for the counter-file trade-off. ${CURSOR_PLUGIN_ROOT}
 
 skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
 skills/plan-with-baz/SKILL.md              Task skill: manual /baz:plan-with-baz planning command
@@ -45,7 +45,11 @@ Both live under `skills/` and ship to all three platforms with no manifest chang
 |---|---|---|---|---|
 | Claude Code | `SessionStart` | `PostToolUse` | `SessionEnd` | `${CLAUDE_PLUGIN_ROOT}` |
 | Codex | `SessionStart` | `PostToolUse` | `Stop` | `${CODEX_PLUGIN_DIR}` |
-| Cursor | `sessionStart` | `postToolUse` | `stop` | `${CURSOR_PLUGIN_ROOT}` |
+| Cursor | `sessionStart` | `postToolUse` | *(none — see below)* | `${CURSOR_PLUGIN_ROOT}` |
+
+**Cursor limitation — no counter/summary.** Cursor's hook validator does not recognize `sessionEnd`, and using its per-turn `stop` for `session-end.js` would wipe the counter mid-session. Rather than leak `/tmp/.baz-counts-<sessionId>.json` forever with no reaper, `post-tool-use.js` short-circuits on Cursor payloads (detected via `conversation_id` without `session_id`). Cursor users get no tool-usage summary at session end — accepted as consistent with the "Cursor is best-effort" posture (see the Completion-trigger design section: no automated postToolUse nudge on Cursor either).
+
+**Codex limitation.** Codex has no session-end event — its only lifecycle event past `PostToolUse` is `Stop`, which fires per-turn. That means `session-end.js` on Codex prints/clears the counter after every turn, and the summary reflects only the last turn's calls. Fixing this requires either an upstream Codex hook addition or a different consumer-owned cleanup pattern.
 
 ## Completion-trigger design
 
