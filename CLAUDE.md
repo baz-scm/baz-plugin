@@ -17,7 +17,7 @@ hooks/
 
   hooks.json                    CC hooks: SessionStart + PostToolUse (mcp__baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
   hooks.codex.json              Codex hooks: SessionStart + PostToolUse (mcp__baz__ + apply_patch|Write|Edit) + Stop, ${CODEX_PLUGIN_DIR}
-  hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop, ${CURSOR_PLUGIN_ROOT}
+  hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only) + sessionEnd (session-end.js), ${CURSOR_PLUGIN_ROOT}
 
 skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
 skills/plan-with-baz/SKILL.md              Task skill: manual /baz:plan-with-baz planning command
@@ -45,7 +45,11 @@ Both live under `skills/` and ship to all three platforms with no manifest chang
 |---|---|---|---|---|
 | Claude Code | `SessionStart` | `PostToolUse` | `SessionEnd` | `${CLAUDE_PLUGIN_ROOT}` |
 | Codex | `SessionStart` | `PostToolUse` | `Stop` | `${CODEX_PLUGIN_DIR}` |
-| Cursor | `sessionStart` | `postToolUse` | `stop` | `${CURSOR_PLUGIN_ROOT}` |
+| Cursor | `sessionStart` | `postToolUse` | `sessionEnd` | `${CURSOR_PLUGIN_ROOT}` |
+
+**Cursor `stop` vs `sessionEnd`.** Cursor's `stop` fires per-turn, not per-session — using it for `session-end.js` wipes the accumulated counter (and token tally) mid-session. `session-end.js` must be wired to `sessionEnd`. `stop` is reserved for per-turn work (currently only `stop-token-tally.js`, which appends the turn's token usage from the hook payload to `/tmp/.baz-tokens-<sessionId>.json` for `plan-complete.js` to consume).
+
+**Codex limitation.** Codex has no session-end event — its only lifecycle event past `PostToolUse` is `Stop`, which fires per-turn. That means `session-end.js` on Codex prints/clears the counter after every turn, and the summary reflects only the last turn's calls. Fixing this requires either an upstream Codex hook addition or a different consumer-owned cleanup pattern (as done for the Cursor token tally).
 
 ## Completion-trigger design
 

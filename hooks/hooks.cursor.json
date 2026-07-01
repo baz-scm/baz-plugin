@@ -13,10 +13,15 @@
       },
       {
         "matcher": "edit_file|write_file|Write|Edit",
-        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/plan-complete.js\""
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/plan-complete.js\" cursor"
       }
     ],
     "stop": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/stop-token-tally.js\""
+      }
+    ],
+    "sessionEnd": [
       {
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/session-end.js\""
       }

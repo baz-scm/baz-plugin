@@ -2,7 +2,7 @@ const fs = require('fs');
 
 const input = fs.readFileSync('/dev/stdin', 'utf8');
 const d = JSON.parse(input);
-const sessionId = d.session_id || 'x';
+const sessionId = d.session_id || d.conversation_id || 'x';
 const logPath = `/tmp/.baz-counts-${sessionId}.json`;
 
 if (!fs.existsSync(logPath)) process.exit(0);
