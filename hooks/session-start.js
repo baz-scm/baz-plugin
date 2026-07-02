@@ -11,6 +11,13 @@ const { execSync } = require('child_process');
 const input = fs.readFileSync('/dev/stdin', 'utf8');
 const d = JSON.parse(input);
 
+// The per-platform hook manifest passes the vendor name as argv[2]
+// (claude-code, codex, or cursor). Baz uses it to attribute planner sessions
+// to the client that started them.
+const SAFE_VENDOR = /^[A-Za-z0-9._-]{1,64}$/;
+const vendorArg = process.argv[2] || '';
+const agentVendor = SAFE_VENDOR.test(vendorArg) ? vendorArg : '';
+
 const sessionId = d.session_id || '';
 // Claude Code + Codex send `cwd` on the hook payload.
 // Cursor sends `workspace_roots: [<path>, ...]` instead — use the first entry.
@@ -47,6 +54,9 @@ let args = `\`sessionId: "${sessionId}"\``;
 if (sessionRepo) {
   instruction += ` You are running in repo \`${sessionRepo}\`.`;
   args += `, \`sessionRepository: "${sessionRepo}"\``;
+}
+if (agentVendor) {
+  args += `, \`agentVendor: "${agentVendor}"\``;
 }
 instruction += ` When calling baz planning MCP tools (\`mcp__baz__repo_search\`, \`mcp__baz__remote_file_search\`, \`mcp__baz__remote_grep\`), always include ${args} as arguments. This is required for baz to correlate tool calls back to this session and the repo you are working in.`;
 

@@ -43,7 +43,7 @@ Produce the plan in the fixed schema below — **always emit every section headi
 
 Where to put it:
 - **Claude Code**: write it to the plan file plan mode gives you (writing that file is what plan mode is for).
-- **Cursor / Codex** (no plan file): present the plan inline in your response. Do **not** write a file before approval. After the user approves, save it to `baz-plan.md` if they want it persisted.
+- **Cursor / Codex** (no plan mode): write the plan to `/tmp/.baz-plan-<sessionId>.md` using your file-write tool (`Write`, `write_file`, `edit_file`, or `apply_patch` — whichever your harness exposes), **and** present the same content inline in your response. Writing that scratch file is what closes the planning session in baz's timeline — the baz plugin's `postToolUse` hook watches for it and injects the follow-up instruction telling you to call `mcp__baz__complete_session`. This scratch file is exempt from the "read-only until approval" rule (see the intro). After the user approves the plan, save it to `baz-plan.md` if they want it persisted.
 
 Add diagrams alongside the prose where they clarify the change — Markdown ```mermaid``` blocks render in all three harnesses:
 - an **ERD** (`erDiagram`) when the change touches a data model / schema;
