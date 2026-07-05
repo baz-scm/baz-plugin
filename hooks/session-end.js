@@ -2,7 +2,9 @@ const fs = require('fs');
 
 const input = fs.readFileSync('/dev/stdin', 'utf8');
 const d = JSON.parse(input);
-const sessionId = d.session_id || 'x';
+// Cursor payloads use `conversation_id`; Claude Code and Codex use `session_id`.
+const sessionId = d.session_id || d.conversation_id || '';
+if (!sessionId) process.exit(0);
 const logPath = `/tmp/.baz-counts-${sessionId}.json`;
 
 if (!fs.existsSync(logPath)) process.exit(0);

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/session-start.js\""
+            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/session-start.js\" codex"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/plan-complete.js\""
+            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/plan-complete.js\" codex"
           }
         ]
       }

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\" claude-code"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/plan-complete.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/plan-complete.js\" claude-code"
           }
         ]
       },
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/plan-complete.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/plan-complete.js\" claude-code"
           }
         ]
       }
