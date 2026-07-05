@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/baz-scm/baz-plugin/compare/v0.3.0...v0.4.0) (2026-07-05)
+
+
+### Features
+
+* **planner:** CR-4545 Agent vendor ([#11](https://github.com/baz-scm/baz-plugin/issues/11)) ([723136b](https://github.com/baz-scm/baz-plugin/commit/723136b50b82f067bfb3043756aec66202181fe7))
+
 ## [0.3.0](https://github.com/baz-scm/baz-plugin/compare/v0.2.2...v0.3.0) (2026-06-30)
 
 
