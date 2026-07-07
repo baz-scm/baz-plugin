@@ -1,33 +1,19 @@
 const fs = require('fs');
 const { execSync } = require('child_process');
 
-// The HTTP MCP transport in Claude Code does not expand header value
-// substitutions (e.g. `${CLAUDE_SESSION_ID}`), so the `x-session-id` header
-// in the plugin manifest never reaches the MCP server. This hook works around
-// that by surfacing both `sessionId` and the cwd's `owner/repo` to the
-// assistant via additionalContext, and instructing it to pass them as tool
-// arguments on every baz planning tool call.
-
 const input = fs.readFileSync('/dev/stdin', 'utf8');
 const d = JSON.parse(input);
 
-// The per-platform hook manifest passes the vendor name as argv[2]
-// (claude-code, codex, or cursor). Baz uses it to attribute planner sessions
-// to the client that started them.
 const SAFE_VENDOR = /^[A-Za-z0-9._-]{1,64}$/;
 const vendorArg = process.argv[2] || '';
 const agentVendor = SAFE_VENDOR.test(vendorArg) ? vendorArg : '';
 
-// Cursor payloads use `conversation_id`; Claude Code and Codex use `session_id`.
 const sessionId = d.session_id || d.conversation_id || '';
-// Claude Code + Codex send `cwd` on the hook payload.
-// Cursor sends `workspace_roots: [<path>, ...]` instead — use the first entry.
 const cwd =
   d.cwd ||
   (Array.isArray(d.workspace_roots) && d.workspace_roots.length > 0
     ? d.workspace_roots[0]
     : '');
-
 if (!sessionId) process.exit(0);
 
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
@@ -70,8 +56,8 @@ if (agentVendor === 'cursor') {
   instruction +=
     ` COMPLETION CONTRACT (Cursor-specific): after you write your final plan` +
     ` to \`/tmp/.baz-plan-${sessionId}.md\`, your very next tool call MUST be` +
-    ` \`mcp__baz__complete_session\` with \`sessionId: "${sessionId}"\`, a` +
-    ` \`completedAt\` timestamp (ISO 8601), and \`finalPlan\` set to the` +
+    ` \`mcp__baz__update_plan\` with \`sessionId: "${sessionId}"\`, a` +
+    ` \`completedAt\` timestamp (ISO 8601), and \`content\` set to the` +
     ` exact plan text you just wrote (verbatim, no summary). Do not wait for` +
     ` a follow-up instruction — no automated nudge will arrive on Cursor.` +
     ` Skipping this leaves the planner session open forever in baz's timeline.`;

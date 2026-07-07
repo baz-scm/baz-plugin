@@ -2,9 +2,10 @@ const fs = require('fs');
 const path = require('path');
 
 // Cursor-only: Cursor's `stop` hook fires once per agent turn and carries the
-// token counts for that turn on its payload. Nothing persists this data — if
-// we don't grab it here it's gone. We accumulate turns into a per-session
-// tally file that `plan-complete.js` reads when the planning session ends.
+// token counts for that turn on its payload, plus a stable `model_id` (with
+// human-readable `model` as fallback). Nothing persists this data — if we
+// don't grab it here it's gone. We accumulate turns into a per-session tally
+// file that `plan-complete.js` reads when the planning session ends.
 //
 // Claude Code and Codex expose per-message usage inside the transcript file, so
 // `plan-complete.js` reads it directly on those platforms and this hook is not
@@ -18,36 +19,36 @@ try { d = JSON.parse(input); } catch { process.exit(0); }
 const sessionId = d.session_id || d.conversation_id || '';
 if (!sessionId) process.exit(0);
 
-const totalInput = Number(d.input_tokens) || 0;
-const output = Number(d.output_tokens) || 0;
-if (totalInput === 0 && output === 0) process.exit(0);
+const turnInput = Number(d.input_tokens) || 0;
+const turnOutput = Number(d.output_tokens) || 0;
+// Prefer stable model_id; fall back to display name `model` if only that's set.
+const turnModelId =
+  (typeof d.model_id === 'string' && d.model_id) ||
+  (typeof d.model === 'string' && d.model) ||
+  '';
 
-const cacheRead = Number(d.cache_read_tokens) || 0;
-const cacheWrite = Number(d.cache_write_tokens) || 0;
-const freshInput = Math.max(0, totalInput - cacheRead - cacheWrite);
+if (turnInput === 0 && turnOutput === 0 && !turnModelId) process.exit(0);
 
 const tallyPath = path.join('/tmp', `.baz-tokens-${sessionId}.json`);
 
-let tally = {
-  input_tokens: 0,
-  cache_creation_tokens: 0,
-  cache_read_tokens: 0,
-  output_tokens: 0,
-  api_call_count: 0,
-};
+let tally = { input_tokens: 0, output_tokens: 0, model_id: '' };
 try {
   const existing = fs.readFileSync(tallyPath, 'utf8');
   const parsed = JSON.parse(existing);
-  if (parsed && typeof parsed === 'object') Object.assign(tally, parsed);
+  if (parsed && typeof parsed === 'object') {
+    tally.input_tokens = Number(parsed.input_tokens) || 0;
+    tally.output_tokens = Number(parsed.output_tokens) || 0;
+    if (typeof parsed.model_id === 'string') tally.model_id = parsed.model_id;
+  }
 } catch {
   // First turn or unreadable file — start fresh.
 }
 
-tally.input_tokens += freshInput;
-tally.cache_creation_tokens += cacheWrite;
-tally.cache_read_tokens += cacheRead;
-tally.output_tokens += output;
-tally.api_call_count += 1;
+tally.input_tokens += turnInput;
+tally.output_tokens += turnOutput;
+// Last-write-wins across turns — model shouldn't change mid-session, but if it
+// does the latest is the one the plan was authored with.
+if (turnModelId) tally.model_id = turnModelId;
 
 try {
   fs.writeFileSync(tallyPath, JSON.stringify(tally), { mode: 0o600 });
