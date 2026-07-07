@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/baz-scm/baz-plugin/compare/v0.4.0...v0.5.0) (2026-07-07)
+
+
+### Features
+
+* **planner:** Some changes to baz plugin ([#13](https://github.com/baz-scm/baz-plugin/issues/13)) ([70a25b6](https://github.com/baz-scm/baz-plugin/commit/70a25b6fcd0a7555623790bf8d048815a98976ea))
+
 ## [0.4.0](https://github.com/baz-scm/baz-plugin/compare/v0.3.0...v0.4.0) (2026-07-05)
 
 
