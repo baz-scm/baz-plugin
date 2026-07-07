@@ -6,15 +6,14 @@ description: >
   investigate where to make changes across the org's repos. Applies even
   when you own one side of a cross-repo contract (API param, schema, event
   payload) locally, and especially when the relevant repositories are not
-  checked out locally. Baz's MCP tools replace `gh` / `glab` for code search
-  across the org; `gh` / `glab` are only for reading specific files once you
-  know the path.
+  checked out locally. Baz's MCP tools are how you search code across the
+  org; once you know a file's path, read it however you like.
 license: MIT
 ---
 
 # Baz Codebase Exploration
 
-This skill helps you plan a change across your org's repos using indexed search. It applies whether or not the relevant repos are checked out locally — and **especially when a change crosses a contract boundary between repos**: you edit one side, another repo defines the other. **Baz MCP tools replace `gh` / `glab` for code search.** Use `gh` / `glab` only to read a specific file once you already know its path.
+This skill helps you plan a change across your org's repos using indexed search. It applies whether or not the relevant repos are checked out locally — and **especially when a change crosses a contract boundary between repos**: you edit one side, another repo defines the other. **Baz MCP tools are how you search code across the org.** Once you know a file's path, read it however you like — local `Read` if the repo is checked out, otherwise your own fetch.
 
 ## When to use this skill
 
@@ -30,14 +29,12 @@ This skill helps you plan a change across your org's repos using indexed search.
 | Find which repos are involved | `repo_search` (Baz) |
 | Find code by symbol / regex inside a repo | `remote_grep` (Baz) |
 | Find files by name / glob inside a repo | `remote_file_search` (Baz) |
-| Read a specific file you already know the path of | `gh api repos/<owner>/<repo>/contents/<path>` |
 
 **Forbidden — these are the patterns that cause the most waste:**
 
-- Do **not** call `gh api repos/<owner>/<repo>/git/trees/HEAD?recursive=1`. Use `remote_file_search` instead.
-- Do **not** call `gh search code`. Use `remote_grep` instead.
-- Do **not** call `remote_file_search` and then `gh api .../git/trees` for the same directory. Pick one — and the answer is always `remote_file_search`.
-- Do **not** call `gh api .../contents/<dir>` to walk a directory. That's a search; use `remote_file_search`.
+- Do **not** bulk-crawl or list a repo's file tree to find files. Use `remote_file_search` instead.
+- Do **not** crawl a repo's contents to search for a symbol or string. Use `remote_grep` instead.
+- Do **not** walk a directory to "look around". That's a search; use `remote_file_search`.
 
 ## Recommended flow
 
@@ -75,15 +72,11 @@ The pattern must contain a naming token. Do **not** call `remote_file_search` wi
 
 Baz tools accept a `repository` argument — either the short leaf name (e.g. `baz`) or the full `owner/repo` (e.g. `org/baz`); pass the full form if the short name is ambiguous across the org. They default to the repo's default branch HEAD, and any `ref` argument accepts a branch name or a 7–40 character hex commit SHA (case-insensitive).
 
-**Search budget — strict.** Each MCP search call costs ~3s. After **3** searches on the same `(repository, path)` pair you MUST open at least one matched file via `gh api .../contents/<path>` before issuing a 4th search on that pair. Rephrasing OR-alternations of the same concern (`foo|Foo|foo_bar`) on the same path is forbidden — the first call already returned everything that matches; if it didn't, the term is wrong (not under-tokenized) and you should pick a different symbol or read a file. A good planning run uses fewer than 10 search calls total.
+**Search budget — strict.** Each MCP search call costs ~3s. After **3** searches on the same `(repository, path)` pair you MUST open/read at least one matched file — local `Read` if the repo is checked out, otherwise your own fetch — before issuing a 4th search on that pair. Rephrasing OR-alternations of the same concern (`foo|Foo|foo_bar`) on the same path is forbidden — the first call already returned everything that matches; if it didn't, the term is wrong (not under-tokenized) and you should pick a different symbol or read a file. A good planning run uses fewer than 10 search calls total.
 
-### Step 3: Read whole files (and only known paths)
+### Step 3: Read a matched file
 
-Once you have a concrete file path from Step 2, fetch the whole file via gh:
-
-```bash
-gh api repos/<owner>/<repo>/contents/<path> --jq '.content' | base64 -d
-```
+Once you have a concrete file path from Step 2, open it — use your local `Read` if the repo is checked out, otherwise fetch it however you normally would (Baz has no whole-file read tool).
 
 If you find yourself wanting to *look around* (list a directory, walk a tree), stop and go back to Step 2 — that's a search, not a read.
 
@@ -102,7 +95,7 @@ Based on what you found, propose:
 
 - Do **not** ask the user to clone repos for you.
 - Do **not** re-query `repo_search` with rephrased keywords. One call, then pick a repo.
-- Do **not** run `remote_file_search` and `gh` tree-listing for the same directory.
+- Do **not** bulk-crawl or list a repo's tree to search — use `remote_file_search` / `remote_grep`.
 - Do **not** delegate this exploration to a generic or local-only subagent (e.g. a plain `Explore` agent) — it silently falls back to local Read/Grep and skips Baz. If you spawn a subagent and the work reaches code outside the local checkout (another repo, or the side of a contract you don't own), its prompt **must** tell it to use the Baz MCP tools (`repo_search` / `remote_grep` / `remote_file_search`) per this skill's routing rules.
 
 ## Session tracking — required
