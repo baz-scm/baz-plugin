@@ -33,9 +33,13 @@ Follow the tool-routing rules in the **`baz-codebase-exploration`** skill. The e
 | Find which repos are involved | `repo_search` (Baz) |
 | Find code by symbol / regex inside a repo | `remote_grep` (Baz) |
 | Find files by name / glob inside a repo | `remote_file_search` (Baz) |
-| Read a specific file you already know the path of | `gh api repos/<owner>/<repo>/contents/<path>` |
+| Read one file whose path you already know | your read tool — local `Read` if checked out, otherwise your own fetch |
 
-Baz MCP tools replace `gh` / `glab` for *search*; use `gh` / `glab` only to read a known path. **Search budget:** call `repo_search` once, don't rephrase keywords, and after 3 searches on the same `(repository, path)` pair read a matched file before searching that pair again. A good run uses fewer than 10 searches total. See `baz-codebase-exploration` for the full rules and forbidden patterns.
+**All searching goes through Baz** — never list, walk, or grep a repo with your read or shell tool. In particular, do **not** use `gh api .../contents/<dir>`, recursive tree fetches, or `ls`/`find` to "look around"; that's a search, so route it through `remote_file_search` / `remote_grep`. Your read tool is only for opening one already-known file path. **Search budget (hard):** call `repo_search` once and don't rephrase keywords; after 3 searches on the same `(repository, path)` pair, read a matched file before searching that pair again; and use **at most 10 searches total** for the whole run — all repos and paths combined, and hopping to a new pair does **not** reset the count. See `baz-codebase-exploration` for the full rules and forbidden patterns.
+
+**Span the stack — builder vs proxy.** Before committing to the layer you found, confirm it actually *builds* the thing you're changing, not just forwards it. A feature often crosses language/service boundaries within one repo (e.g. a TypeScript BFF endpoint that proxies a response built by a Rust `platform/` crate). If a handler returns data without defining its shape, keep searching upstream — other directories and other language stacks (`platform/crates`, `src/`, `pkg/`) — for where the shape is defined. Naming the proxy instead of the builder means the change wouldn't take effect.
+
+**Verify before you assert.** Never claim code *already* does something (already returns a field, already handles a case, already registered) from a name, a type, or a nearby file — open the definition and read it. Most wrong plans come from an unverified "already handled" assumption; when in doubt, read the source instead of inferring.
 
 ## Step 3: Write the plan
 

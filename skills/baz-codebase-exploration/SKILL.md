@@ -30,11 +30,11 @@ This skill helps you plan a change across your org's repos using indexed search.
 | Find code by symbol / regex inside a repo | `remote_grep` (Baz) |
 | Find files by name / glob inside a repo | `remote_file_search` (Baz) |
 
-**Forbidden — these are the patterns that cause the most waste:**
+**Forbidden — every kind of search goes through a Baz tool, never through your read or shell tool.** These are the patterns that cause the most waste:
 
-- Do **not** bulk-crawl or list a repo's file tree to find files. Use `remote_file_search` instead.
-- Do **not** crawl a repo's contents to search for a symbol or string. Use `remote_grep` instead.
-- Do **not** walk a directory to "look around". That's a search; use `remote_file_search`.
+- Do **not** list or walk a repo's file tree to find files — no directory listing, no recursive tree fetch (e.g. `gh api .../contents/<dir>`, `gh api .../git/trees/HEAD?recursive=1`, `ls`/`find` over a checkout). Use `remote_file_search`.
+- Do **not** crawl or scan a repo's contents to find a symbol or string (e.g. `gh search code`, grepping fetched files). Use `remote_grep`.
+- Do **not** use your file-read mechanism (local `Read`, `gh api .../contents/<path>`, `curl`, …) for anything except opening **one already-known file path**. Pointing it at a directory, or firing several to "look around", is a search — route it through `remote_file_search` / `remote_grep`. The read tool is the *last* step, never the exploration.
 
 ## Recommended flow
 
@@ -72,17 +72,24 @@ The pattern must contain a naming token. Do **not** call `remote_file_search` wi
 
 Baz tools accept a `repository` argument — either the short leaf name (e.g. `baz`) or the full `owner/repo` (e.g. `org/baz`); pass the full form if the short name is ambiguous across the org. They default to the repo's default branch HEAD, and any `ref` argument accepts a branch name or a 7–40 character hex commit SHA (case-insensitive).
 
-**Search budget — strict.** Each MCP search call costs ~3s. After **3** searches on the same `(repository, path)` pair you MUST open/read at least one matched file — local `Read` if the repo is checked out, otherwise your own fetch — before issuing a 4th search on that pair. Rephrasing OR-alternations of the same concern (`foo|Foo|foo_bar`) on the same path is forbidden — the first call already returned everything that matches; if it didn't, the term is wrong (not under-tokenized) and you should pick a different symbol or read a file. A good planning run uses fewer than 10 search calls total.
+**Search budget — strict.** Each MCP search call costs ~3s. Two limits, both hard:
+
+- **Per pair:** after **3** searches on the same `(repository, path)` pair you MUST open/read at least one matched file — local `Read` if the repo is checked out, otherwise your own fetch — before issuing a 4th search on that pair. Rephrasing OR-alternations of the same concern (`foo|Foo|foo_bar`) on the same path is forbidden — the first call already returned everything that matches; if it didn't, the term is wrong (not under-tokenized) and you should pick a different symbol or read a file.
+- **Total:** **at most 10 search calls** for the whole planning run — every repo and path combined, not per pair. If you reach 10 and still haven't found a keystone, stop searching and read the most promising file you've already surfaced; the answer is almost always reachable from a file you've already seen, not from an 11th search. Hopping to a new `(repo, path)` pair does not reset this count.
 
 ### Step 3: Read a matched file
 
-Once you have a concrete file path from Step 2, open it — use your local `Read` if the repo is checked out, otherwise fetch it however you normally would (Baz has no whole-file read tool).
+Once you have a concrete file path from Step 2, open it — use your local `Read` if the repo is checked out, otherwise fetch it however you normally would (Baz has no whole-file read tool). Read **one known path per call**; never point your read/fetch tool at a directory.
 
 If you find yourself wanting to *look around* (list a directory, walk a tree), stop and go back to Step 2 — that's a search, not a read.
 
 ### Step 4: Produce the plan
 
 If the change depends on something in another repo — an API, schema, or contract you don't own — verify it from source with Baz before finalizing, rather than assuming it's already in place.
+
+**Span the stack — is this layer the builder or a proxy?** Before you commit to the layer you found, confirm it's the one that actually *builds* the thing you're changing, not one that merely forwards it. A single feature (an API response, an event, a record) often crosses language/service boundaries within one repo — e.g. a TypeScript BFF endpoint that proxies a response actually constructed by a Rust `platform/` crate. If you find a handler that returns or re-exposes data without defining its shape, keep searching *upstream* (other directories, other language stacks like `platform/crates`, `src/`, `pkg/`) for where the shape is defined. Naming the proxy instead of the builder means the planned change wouldn't actually take effect.
+
+**Verify before you assert.** Never state that code *already* does something — already returns a field, already handles a case, already registered, is already wired — based on a name, a type, or a nearby file. Open the definition and read it. Most wrong plans come from an unverified "this is already handled" assumption that a look at the source would have disproved. If you catch yourself inferring behavior instead of confirming it, that's a signal to read the file.
 
 Based on what you found, propose:
 
