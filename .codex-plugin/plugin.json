@@ -4,7 +4,7 @@
   "description": "Baz codebase exploration — indexed search across your org's repos via MCP.",
   "author": {
     "name": "Baz",
-    "url": "https://baz.co"
+    "url": "https://baz.ai"
   },
   "homepage": "https://github.com/baz-scm/baz-plugin",
   "repository": "https://github.com/baz-scm/baz-plugin",

@@ -1,10 +1,10 @@
 {
   "name": "baz",
   "version": "0.5.0",
-  "description": "Baz codebase exploration — indexed search across your org's repos via MCP.",
+  "description": "Indexed cross-repo search and AI-assisted planning for your org's codebase: search, grep, and file-find across every repo without cloning, plus a guided planning workflow that lets your team collaborate on plans together in Baz.",
   "author": {
     "name": "Baz",
-    "url": "https://baz.co"
+    "url": "https://baz.ai"
   },
   "homepage": "https://github.com/baz-scm/baz-plugin",
   "repository": "https://github.com/baz-scm/baz-plugin",
