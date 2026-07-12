@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "baz",
-      "description": "Codebase exploration skill + Baz MCP server (indexed grep, file-glob, cross-repo search).",
+      "description": "Indexed cross-repo search and AI-assisted planning for your org's codebase: search, grep, and file-find across every repo without cloning, plus a guided planning workflow that lets your team collaborate on plans together in Baz.",
       "source": "./",
       "category": "productivity"
     }

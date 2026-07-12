@@ -16,3 +16,5 @@ jobs:
           find . -name '*.json' -not -path './.git/*' -print0 | while IFS= read -r -d '' f; do
             python3 -m json.tool "$f" > /dev/null && echo "OK: $f" || exit 1
           done
+      - name: Validate plugin manifest
+        run: npx -y @anthropic-ai/claude-code plugin validate . --strict
