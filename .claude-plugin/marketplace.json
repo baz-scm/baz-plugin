@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "baz",
   "description": "Baz tools for Claude Code.",
-  "owner": { "name": "Baz", "url": "https://baz.co" },
+  "owner": { "name": "Baz", "url": "https://baz.ai" },
   "plugins": [
     {
       "name": "baz",
