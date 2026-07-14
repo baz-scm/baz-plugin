@@ -3,13 +3,19 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 // PostToolUse hook that emits the "call mcp__baz__update_plan next" nudge
-// once planning is done. Two trigger paths converge here:
+// once planning is done. Three trigger paths converge here:
 //
-//   1. CC's ExitPlanMode — agent used plan mode (which blocks file writes, so
-//      path 2 can't fire). Always nudge on this tool.
-//   2. File-write tools (Write/Edit/apply_patch/edit_file/write_file) — agent
+//   1. CC's ExitPlanMode — agent used plan mode and the user approved.
+//   2. CC's Write to the plan-mode plan file at ~/.claude/plans/<name>.md —
+//      agent has drafted the plan but the user hasn't approved yet. We fire
+//      the nudge here so the plan lands in baz's timeline as soon as it
+//      exists, without waiting on approval. If the user later approves and
+//      ExitPlanMode fires, the follow-up update_plan call is deduped
+//      server-side by content hash (identical content → same version).
+//   3. File-write tools (Write/Edit/apply_patch/edit_file/write_file) — agent
 //      planned inline and wrote its final plan to /tmp/.baz-plan-<sessionId>.md
-//      per SKILL.md / .cursor/rules / AGENTS.md.
+//      per SKILL.md / .cursor/rules / AGENTS.md. Used by Codex / Cursor and by
+//      Claude Code when running the skill *without* plan mode.
 //
 // For path 2 we inspect the tool's *destination path* fields (not the full
 // tool_input JSON) so a Write/Edit whose *content* happens to mention the
@@ -87,6 +93,22 @@ function toolWritesPlanFile(hookInput, planFilename) {
   }
 
   return false;
+}
+
+// Claude Code plan mode writes its plan to ~/.claude/plans/<random-name>.md.
+// The filename is assigned by the harness, so we can't match by basename;
+// instead we match by containing directory. When this trigger fires we can
+// read the plan content directly from the file the tool just wrote.
+function claudeCodePlanFilePath(hookInput) {
+  const input = coerceToolInput(hookInput.tool_input);
+  if (!input || typeof input.file_path !== 'string') return null;
+  const home = process.env.HOME || '';
+  if (!home) return null;
+  const plansDir = path.join(home, '.claude', 'plans') + path.sep;
+  const fp = input.file_path;
+  if (!fp.startsWith(plansDir)) return null;
+  if (!fp.endsWith('.md')) return null;
+  return fp;
 }
 
 // --- Usage extractors -------------------------------------------------------
@@ -201,6 +223,14 @@ function extractPlan(hookInput, sid) {
       null;
     return normalizePlan(plan);
   }
+  // Claude Code plan mode: read from the file we just detected. We must NOT
+  // unlink it — the harness owns that file and shows it to the user for
+  // approval.
+  const ccPlanPath = claudeCodePlanFilePath(hookInput);
+  if (ccPlanPath) {
+    const content = safeReadFile(ccPlanPath);
+    return normalizePlan(content);
+  }
   const planPath = path.join('/tmp', `.baz-plan-${sid}.md`);
   const content = safeReadFile(planPath);
   if (content === null) return null;
@@ -264,7 +294,9 @@ const sessionId = d.session_id || d.conversation_id || '';
 if (!sessionId) process.exit(0);
 
 if ((d.tool_name || '') !== 'ExitPlanMode') {
-  if (!toolWritesPlanFile(d, `.baz-plan-${sessionId}.md`)) process.exit(0);
+  const hasCcPlanFile = claudeCodePlanFilePath(d) !== null;
+  const hasScratchPlanFile = toolWritesPlanFile(d, `.baz-plan-${sessionId}.md`);
+  if (!hasCcPlanFile && !hasScratchPlanFile) process.exit(0);
 }
 
 // update_plan requires content — if we couldn't extract the plan, there's
@@ -284,11 +316,10 @@ const modelId = usage && usage.modelId;
 
 const repoNames = collectRepos(sessionId, cwdFromHookInput(d));
 
-const completedAt = new Date().toISOString();
 const instruction = [
   `REQUIRED — DO THIS NOW: You just finished planning.` +
     ` Your next tool invocation MUST be \`mcp__baz__update_plan\` with` +
-    ` \`sessionId: "${sessionId}"\`, \`completedAt: "${completedAt}"\`, and` +
+    ` \`sessionId: "${sessionId}"\` and` +
     ` \`content: ${JSON.stringify(planContent)}\` — this is the authoritative` +
     ` plan text (read from the tool input or the plan file on disk); pass the` +
     ` string exactly as given.`,
@@ -305,9 +336,9 @@ const instruction = [
     ` repositories relevant to this plan (the session's root repo plus every` +
     ` repo searched via baz MCP tools). Pass the array exactly as given so the` +
     ` plan is discoverable under each of these repos.`,
-  `\`completedAt\` is what tells baz to persist this as the final plan and` +
-    ` close the planner session on the timeline. Call it exactly once, before` +
-    ` responding to the user or running any other tool.`,
+  `This tool call persists the plan and closes the planner session on the` +
+    ` timeline. Call it exactly once, before responding to the user or running` +
+    ` any other tool.`,
 ].filter(Boolean).join(' ');
 
 process.stdout.write(JSON.stringify({

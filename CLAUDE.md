@@ -1,6 +1,6 @@
 # baz-plugin
 
-Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools. All three platforms wire a session-start hook that surfaces session id + cwd repo so baz can correlate tool calls, and a PostToolUse hook that watches for the agent writing its final plan to `/tmp/.baz-plan-<sessionId>.md` — that file-write is the cross-platform "I'm done planning" signal that nudges the agent to call `mcp__baz__update_plan` with `completedAt` set, which persists the plan and emits the `planner_session_completed` timeline event.
+Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools. All three platforms wire a session-start hook that surfaces session id + cwd repo so baz can correlate tool calls, and a PostToolUse hook that watches for the agent writing its final plan to `/tmp/.baz-plan-<sessionId>.md` — that file-write is the cross-platform "I'm done planning" signal that nudges the agent to call `mcp__baz__update_plan`, which persists the plan and emits the `planner_session_completed` timeline event.
 
 ## Repo layout
 
@@ -11,7 +11,7 @@ Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools
 
 hooks/
   session-start.js              Shared: emits additionalContext telling the assistant the session id + cwd repo (allowlist-validated), so it passes them through to baz MCP tools for session correlation. Handles `cwd` (CC/Codex) and `workspace_roots[0]` (Cursor).
-  plan-complete.js              Shared completion trigger: prompts the agent to call mcp__baz__update_plan with completedAt set. Branches on tool_name — ExitPlanMode (CC plan mode) always fires; file-write tools (Write/Edit/apply_patch/edit_file/write_file) fire only when the path matches /tmp/.baz-plan-<sessionId>.md. CC wires both branches; Cursor/Codex have no ExitPlanMode and rely on the file-write branch. Exits quietly if the plan text can't be extracted — update_plan requires content.
+  plan-complete.js              Shared completion trigger: prompts the agent to call mcp__baz__update_plan. Branches on tool_name — ExitPlanMode (CC plan mode) always fires; file-write tools (Write/Edit/apply_patch/edit_file/write_file) fire only when the path matches /tmp/.baz-plan-<sessionId>.md. CC wires both branches; Cursor/Codex have no ExitPlanMode and rely on the file-write branch. Exits quietly if the plan text can't be extracted — update_plan requires content.
   post-tool-use.js              Shared: increments per-tool counter in /tmp on each Baz MCP call
   session-end.js                Shared: prints call summary to console at session end, cleans up /tmp
 
@@ -53,12 +53,12 @@ Both live under `skills/` and ship to all three platforms with no manifest chang
 
 ## Completion-trigger design
 
-`planner_session_completed` is emitted server-side when the agent calls `mcp__baz__update_plan` with `completedAt` set. That single tool call also upserts the plan into baz's plans store (`series_key = sessionId`). The agent needs a "planning is over" signal, but the right signal differs per platform:
+`planner_session_completed` is emitted server-side when the agent calls `mcp__baz__update_plan`. That single tool call also upserts the plan into baz's plans store (`series_key = sessionId`). The agent needs a "planning is over" signal, but the right signal differs per platform:
 
 - **Claude Code**: two PostToolUse matchers both point at `plan-complete.js` — `ExitPlanMode` (CC's native end-of-planning tool, used when the agent is in plan mode which blocks file writes) and `Write|Edit` (the file-write branch, fires when the agent plans without entering plan mode and writes the plan file inline).
 - **Cursor / Codex**: no `ExitPlanMode` tool. SKILL.md / `.cursor/rules/...mdc` / `AGENTS.md` instruct the agent to write its final plan to `/tmp/.baz-plan-<sessionId>.md` at end of planning; `plan-complete.js` matches that write across the platform's file-write tools (`apply_patch|Write|Edit` on Codex, `edit_file|write_file|Write|Edit` on Cursor) and injects the nudge.
 
-Both paths converge on `mcp__baz__update_plan` (with `completedAt` set). BFF upserts the plan and flips the reviewer_executions row to `status='success'` with `completed_at` set.
+Both paths converge on `mcp__baz__update_plan`. BFF upserts the plan and flips the reviewer_executions row to `status='success'` with `completed_at` set.
 
 
 ## Adding a new hook

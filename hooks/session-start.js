@@ -56,11 +56,11 @@ if (agentVendor === 'cursor') {
   instruction +=
     ` COMPLETION CONTRACT (Cursor-specific): after you write your final plan` +
     ` to \`/tmp/.baz-plan-${sessionId}.md\`, your very next tool call MUST be` +
-    ` \`mcp__baz__update_plan\` with \`sessionId: "${sessionId}"\`, a` +
-    ` \`completedAt\` timestamp (ISO 8601), and \`content\` set to the` +
-    ` exact plan text you just wrote (verbatim, no summary). Do not wait for` +
-    ` a follow-up instruction — no automated nudge will arrive on Cursor.` +
-    ` Skipping this leaves the planner session open forever in baz's timeline.`;
+    ` \`mcp__baz__update_plan\` with \`sessionId: "${sessionId}"\` and` +
+    ` \`content\` set to the exact plan text you just wrote (verbatim, no` +
+    ` summary). Do not wait for a follow-up instruction — no automated nudge` +
+    ` will arrive on Cursor. Skipping this leaves the planner session open` +
+    ` forever in baz's timeline.`;
 }
 
 process.stdout.write(JSON.stringify({
