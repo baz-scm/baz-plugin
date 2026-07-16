@@ -26,7 +26,9 @@ Get into plan mode before exploring, where the harness supports it:
 
 ## Step 2: Explore with Baz
 
-Follow the tool-routing rules in the **`baz-codebase-exploration`** skill. The essentials:
+**Load and follow the `baz-codebase-exploration` skill for every search, read, and planning decision in this run.** It is the authoritative source for tool routing, the search budget, the builder-vs-proxy and verify-before-you-assert checks, and the "enumerate an existing peer's registration sites" completeness rule. Invoke it now (via the Skill tool on Claude Code; on Cursor it is already applied as an always-on rule) and treat its rules as binding. This wrapper owns only the wrapper concerns — plan mode (Step 1), the plan-document schema and baz session close (Step 3), and approval (Step 4).
+
+If for any reason that skill is not in your context, these non-negotiables still apply — but prefer the full skill:
 
 | Job | Tool |
 |---|---|
@@ -35,11 +37,9 @@ Follow the tool-routing rules in the **`baz-codebase-exploration`** skill. The e
 | Find files by name / glob inside a repo | `remote_file_search` (Baz) |
 | Read one file whose path you already know | your read tool — local `Read` if checked out, otherwise your own fetch |
 
-**All searching goes through Baz** — never list, walk, or grep a repo with your read or shell tool. In particular, do **not** use `gh api .../contents/<dir>`, recursive tree fetches, or `ls`/`find` to "look around"; that's a search, so route it through `remote_file_search` / `remote_grep`. Your read tool is only for opening one already-known file path. **Search budget (hard):** call `repo_search` once and don't rephrase keywords; after 3 searches on the same `(repository, path)` pair, read a matched file before searching that pair again; and use **at most 10 searches total** for the whole run — all repos and paths combined, and hopping to a new pair does **not** reset the count. See `baz-codebase-exploration` for the full rules and forbidden patterns.
-
-**Span the stack — builder vs proxy.** Before committing to the layer you found, confirm it actually *builds* the thing you're changing, not just forwards it. A feature often crosses language/service boundaries within one repo (e.g. a TypeScript BFF endpoint that proxies a response built by a Rust `platform/` crate). If a handler returns data without defining its shape, keep searching upstream — other directories and other language stacks (`platform/crates`, `src/`, `pkg/`) — for where the shape is defined. Naming the proxy instead of the builder means the change wouldn't take effect.
-
-**Verify before you assert.** Never claim code *already* does something (already returns a field, already handles a case, already registered) from a name, a type, or a nearby file — open the definition and read it. Most wrong plans come from an unverified "already handled" assumption; when in doubt, read the source instead of inferring.
+- **All searching goes through Baz** — never list, walk, or grep a repo with your read or shell tool. Recursive tree fetches or `ls`/`find` to "look around" are searches; route them through `remote_file_search` / `remote_grep`. Your read tool is only for opening one already-known file path.
+- **Search budget (hard):** call `repo_search` once and don't rephrase keywords; after 3 searches on the same `(repository, path)` pair, read a matched file before searching that pair again; use **at most 10 searches total** for the whole run — all repos and paths combined, and hopping to a new pair does **not** reset the count.
+- **Adding one more case to an existing set** (another enum value, another implementation of an interface, another branch in a dispatcher): before finalizing, run ONE repo-wide search for the identifier of an **existing peer** already in that set. Its hits enumerate every site the set is wired through — the enum / constant list, factory or lookup maps, switch / match arms, dispatch or handler tables, route tables, and config — and your plan must add the new case at each. Skim that peer's tests too, in case an assertion that your case is absent needs updating.
 
 ## Step 3: Write the plan
 
