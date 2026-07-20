@@ -70,6 +70,8 @@ Baz tools accept a `repository` argument — either the short leaf name (e.g. `b
 
 **Search budget — strict.** Each MCP search call costs ~3s. After **3** searches on the same `(repository, path)` pair you MUST open at least one matched file via `gh api .../contents/<path>` before issuing a 4th search on that pair. Rephrasing OR-alternations of the same concern (`foo|Foo|foo_bar`) on the same path is forbidden — the first call already returned everything that matches; if it didn't, the term is wrong (not under-tokenized) and you should pick a different symbol or read a file. A good planning run uses fewer than 10 search calls total.
 
+**Adding one more case to an existing set?** — another value in an enum, another implementation of an interface, another branch in a dispatcher (a new type, provider, command, route, event, or handler). The most common planning miss is leaving out a place the new case must be registered. Before finalizing, run ONE repo-wide search for the identifier of an **existing peer** in that set — grep the name of a sibling value or class already in the codebase. Its hits enumerate every site the set is wired through: the enum / constant list, factory or lookup maps, switch / match arms, dispatch or handler tables, route tables, and config. Your plan must add the new case at each site. This is a single cheap search, not a wide read — it surfaces the registration points that reading only one sibling's own implementation file misses. Skim that sibling's tests too: an existing assertion that your new case is absent or unsupported will need updating. Every site this sweep surfaces must be addressed in the plan as a concrete required change (or explicitly ruled out with a reason) — do not leave a surfaced site as an open question.
+
 ### Step 3: Read whole files (and only known paths)
 
 Once you have a concrete file path from Step 2, fetch the whole file via gh:
@@ -83,6 +85,10 @@ If you find yourself wanting to *look around* (list a directory, walk a tree), s
 ### Step 4: Produce the plan
 
 If the change depends on something in another repo — an API, schema, or contract you don't own — verify it from source with Baz before finalizing, rather than assuming it's already in place.
+
+**Open questions are only for decisions a person must make** — product scope, editable-vs-read-only, which behavior is intended. They are **not** a place to defer code you found but didn't check. If your peer-enumeration sweep (or any search) surfaces an internal touch-point — a sibling classifier, a walker, a registration site, a config — **read it and either include the change as a required step or state concretely why it is not needed.** Never park a discovered internal touch-point as a "confirm?" open question; that reads as an omission, not diligence.
+
+The "verify or flag" caution applies **only to genuinely external/third-party behavior** you cannot read from source — a remote API's semantics, an SDK's data shapes, a file format's rules. Even then, prefer verifying it from source with the indexed-search tools before assuming; only note it as an open question if it is truly unknowable from the code.
 
 Based on what you found, propose:
 
