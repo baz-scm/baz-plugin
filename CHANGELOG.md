@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/baz-scm/baz-plugin/compare/v0.5.0...v0.5.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* CR-4785 Change plan trigger ([#16](https://github.com/baz-scm/baz-plugin/issues/16)) ([3219b36](https://github.com/baz-scm/baz-plugin/commit/3219b361e850f6acfd7492c6f65704cecae67b72))
+
 ## [0.5.0](https://github.com/baz-scm/baz-plugin/compare/v0.4.0...v0.5.0) (2026-07-07)
 
 
