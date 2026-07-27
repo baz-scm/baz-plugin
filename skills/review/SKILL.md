@@ -59,6 +59,17 @@ Do not report anything until you can name the concrete conditions that trigger i
 
 **Load and follow the `baz-codebase-exploration` skill** (Skill tool on Claude Code; already an always-on rule on Cursor). It owns tool routing, the search budget, and the verify-before-you-assert rule; everything below is what to point those tools at during a review. As there, all searching goes through Baz — `repo_search`, `remote_grep`, `remote_file_search` — never a shell walk of another repo, and you must pass `sessionId`, `sessionRepository`, and `agentVendor` (from the SessionStart context) on every Baz call.
 
+### Baz is required — confirm it before reviewing
+
+This step is not optional garnish. Before running the checks, confirm the Baz tools are actually callable: `mcp__baz__repo_search` and friends present in your tool list, and your first call not failing with an auth error. **If they are missing or unauthenticated, you must not quietly fall back to a local-only review** — that produces a review that looks complete while skipping the only checks that can see other repos.
+
+When Baz is unavailable, first decide whether the diff has an **outward-facing surface**: a changed or removed exported signature, an altered response/request shape, a renamed event or topic, a schema or DB column change, a new or removed public export, an enum or dispatch set another repo may switch on, a changed config or API contract.
+
+- **Outward-facing surface → stop and say so. Do not issue a merge verdict.** Lead your response with it: Baz is not connected, so cross-repo checks did not run; name the specific symbols whose consumers you could not check. Tell the user how to fix it (first Baz tool call opens the OAuth flow; `/mcp` on Claude Code shows connection state) and offer to re-run. If they want the local-only review anyway, give it — clearly labelled **incomplete**, with no safe-to-merge claim.
+- **No outward-facing surface** (formatting, a private helper, a test-only edit) → proceed with the local review and note in one line that Baz was unavailable but no cross-repo checks were applicable. Here the review is genuinely complete.
+
+The same rule applies if Baz is connected but you exhaust the search budget before finishing check 1: say which symbols went unchecked rather than implying full coverage.
+
 Run these checks in priority order, and stop when the search budget (10 calls) is spent:
 
 1. **Broken consumers across repos.** For every symbol the diff changes in an outward-facing way — a changed or removed function signature, an altered response shape or field name, a renamed event/topic, a modified DB column, a bumped API version, a deleted export — `remote_grep` the identifier across the org and read the hits. A call site that still passes the old shape is a **blocking** finding, and it is one this review is uniquely able to find. Say which repo and file it lives in.
@@ -99,11 +110,16 @@ Group findings by severity, most severe first. Every finding needs a `file:line`
 ### Consider
 ...
 
+## Coverage
+Cross-repo checks: <ran, and which repos searched clean | NOT RUN — Baz unavailable | partial — budget exhausted, <symbols> unchecked>
+
 ## Summary
 <N blocking, N should-fix, N consider.> <One line: is this safe to merge?>
 ```
 
 Emit every heading in order; write `_None._` under any that are empty. If there is nothing to report, say the change looks correct and name what you checked — including which repos you searched and found clean. A clean review that lists its coverage is useful; a bare "LGTM" isn't.
+
+**Never state or imply a change is safe to merge when the cross-repo checks did not run and the diff has an outward-facing surface.** That is the one claim this review cannot make on local information alone — the whole point of Step 3 is that a signature change looks fine in this repo right up until it breaks a caller in another one. Say "no issues found in this repo, cross-repo consumers unchecked" and leave the merge decision to the user.
 
 ## Step 6: Fix (only with `--fix`, or when the user asks)
 
