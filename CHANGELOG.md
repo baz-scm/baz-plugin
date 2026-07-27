@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/baz-scm/baz-plugin/compare/v0.5.1...v0.6.0) (2026-07-27)
+
+
+### Features
+
+* **review:** add /baz:review code review command ([#19](https://github.com/baz-scm/baz-plugin/issues/19)) ([675e8f4](https://github.com/baz-scm/baz-plugin/commit/675e8f47f5b495fa2d4a2fd37583645f79df7ae8))
+
 ## [0.5.1](https://github.com/baz-scm/baz-plugin/compare/v0.5.0...v0.5.1) (2026-07-20)
 
 
