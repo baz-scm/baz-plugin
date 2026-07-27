@@ -21,17 +21,23 @@ hooks/
 
 skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
 skills/plan-with-baz/SKILL.md              Task skill: manual /baz:plan-with-baz planning command
+skills/review/SKILL.md                     Task skill: /baz:review diff review, cross-repo checks via Baz
 .cursor/rules/baz-codebase-exploration.mdc Reference skill, Cursor rules format (always-apply)
 ```
 
 ## Skills
 
-Two skills, by type:
+Three skills, by type:
 
 - **`baz-codebase-exploration`** — *reference* content. Auto-loaded; the tool-routing rules + search budget. Also mirrored as a Cursor always-apply rule (`.cursor/rules/*.mdc`).
 - **`plan-with-baz`** — *task* content. Manually invoked as `/baz:plan-with-baz` (`disable-model-invocation: true` so Claude won't auto-trigger it). Enters plan mode per-harness, explores via Baz, and emits a plan in a fixed section schema. It defers the detailed routing rules to `baz-codebase-exploration` rather than forking the table.
+- **`review`** — *task* content. Invoked as `/baz:review [scope]`, and unlike `plan-with-baz` it **omits** `disable-model-invocation`, so "review my changes" triggers it too — natural-language invocation is the point of parity with competing review plugins. Resolves a git/PR diff, reads the changed files, then spends the `baz-codebase-exploration` search budget on the checks only indexed search can make: broken call sites in other repos, the far side of a contract, and registration sites a new case is missing from. Optional `--fix` loop applies findings in the local checkout only.
 
-Both live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. The `plan-with-baz` skill is on-demand, so it has **no** `.cursor/rules/*.mdc` mirror (rules are always-apply).
+All three live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. `plan-with-baz` and `review` are on-demand, so neither has a `.cursor/rules/*.mdc` mirror (rules are always-apply).
+
+`review` deliberately introduces no new MCP tool, hook, or manifest entry — it composes the three existing search tools. Cross-repo findings are reported, never edited: the `--fix` loop only touches the repo that is checked out.
+
+**Baz-unavailable posture — gate the verdict, not the command.** A review run without the Baz MCP tools would otherwise degrade silently into a local review that still claims "safe to merge", which is the one claim local information cannot support. Rather than hard-blocking the command (wrong for a model-invocable skill — a lapsed OAuth token shouldn't wall off "review my changes", and a formatting-only diff has nothing cross-repo to miss), the skill branches on whether the diff has an **outward-facing surface**: if it does, it stops, names the unchecked symbols, and withholds the merge verdict; if it doesn't, it reviews normally with a one-line note. The `## Coverage` heading in the Step 5 report template exists to make this state explicit on every run, including the partial case where the search budget runs out mid-check. If that posture is ever relaxed to a hard block, the report template's coverage line should stay — it's what keeps a degraded review from reading as a complete one.
 
 ### Plan output schema (Tier-3 contract)
 
