@@ -41,13 +41,26 @@ Never assume `main` exists because the repo looks like it should have one — `r
 | `--include-untracked` | Adds new files git isn't tracking yet | `git ls-files --others --exclude-standard`, then read each |
 | `--pr <number\|url>` | An open pull request | `gh pr diff <n>` (or `glab mr diff <n>`) |
 
+### When flags conflict
+
+Scope flags can contradict each other, and guessing wrong means reviewing a different diff than the user asked for. Resolve combinations by this ladder, top rule first:
+
+1. **`--pr` is exclusive.** Combined with `committed`, `uncommitted`, `--include-untracked`, or `--base`, **stop and ask which they meant.** Do not guess — a PR's diff against its own base and the local branch's diff can differ substantially, and silently picking one produces a confident review of the wrong changes.
+2. **`committed` + `uncommitted` together == the default scope**, since the default is exactly their union (merge-base → working tree). Proceed, and say that's how you read it.
+3. **`--include-untracked` + `committed` is contradictory** — a committed range cannot contain untracked files. Stop and ask.
+4. **`--include-untracked`** is additive to the default and to `uncommitted`. Valid, no conflict.
+5. **`--base` is inert with `uncommitted`**, which diffs against `HEAD` and never consults a base. Honour the `uncommitted` scope and say the `--base` value had no effect — don't drop it silently.
+6. **`--fix` is orthogonal** and combines with every scope.
+
+Never silently ignore a flag the user typed. Anything refused or inert must appear in the scope line below.
+
 Notes:
 
 - `--pr` needs `gh`/`glab` on PATH and authenticated. If it isn't, say so and offer the branch-based scopes instead — don't fall back silently to a different diff than the user asked for.
 - Get the file list with `--name-status` first, then pull the diff. If the diff is very large, review it in file batches rather than truncating — a truncated diff produces a review that silently skips files, which is worse than a slower one.
 - **Empty diff is a result, not an error.** Report that the scope is empty and name the scope you resolved (base branch, commit range) so the user can correct it.
 
-State the resolved scope in one line before reviewing — base branch, number of files, number of commits — so the user can see immediately if you're looking at the wrong thing.
+State the resolved scope in one line before reviewing — the scope mode you settled on, base branch, number of files, number of commits, **plus any flag you refused or treated as inert and why** — so the user can see immediately if you're looking at the wrong thing.
 
 ## Step 2: Understand the change before judging it
 
@@ -57,7 +70,9 @@ Do not report anything until you can name the concrete conditions that trigger i
 
 ## Step 3: Check the change against the rest of the org — the Baz step
 
-**Load and follow the `baz-codebase-exploration` skill** (Skill tool on Claude Code; already an always-on rule on Cursor). It owns tool routing, the search budget, and the verify-before-you-assert rule; everything below is what to point those tools at during a review. As there, all searching goes through Baz — `repo_search`, `remote_grep`, `remote_file_search` — never a shell walk of another repo, and you must pass `sessionId`, `sessionRepository`, and `agentVendor` (from the SessionStart context) on every Baz call.
+**Load and follow the `baz-codebase-exploration` skill** (Skill tool on Claude Code; already an always-on rule on Cursor). It owns tool routing, the search budget, and the verify-before-you-assert rule; everything below is what to point those tools at during a review. As there, all searching goes through Baz — `repo_search`, `remote_grep`, `remote_file_search` — never a shell walk of another repo.
+
+Pass the session-correlation arguments on every Baz call — `sessionId`, `sessionRepository`, and `agentVendor`, exactly as the SessionStart context gave them to you. **Pass whichever of the three that context actually supplied.** The hook omits `sessionRepository` when the cwd has no resolvable `origin` remote, and `agentVendor` when the harness didn't supply one; the values are not yours to invent, so don't substitute a guess from the folder name. A missing value costs session correlation in baz's timeline — it does **not** invalidate the search results, so it is never a reason to skip the cross-repo checks or to downgrade the review's coverage. Coverage is gated on the checks not running (below), not on telemetry fields.
 
 ### Baz is required — confirm it before reviewing
 
