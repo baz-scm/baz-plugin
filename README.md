@@ -50,6 +50,8 @@ Cursor doesn't auto-install MCP servers. Two manual steps:
 
 The `baz-codebase-exploration` skill teaches the agent when to use which, and to stop searching and start reading once it has a hit. It loads automatically when relevant.
 
+On top of those, the plugin ships two commands: `/baz:plan-with-baz` for planning a change and `/baz:review` for reviewing one.
+
 ## Planning command
 
 The plugin also ships a manually-invoked planning command, **`/baz:plan-with-baz`**. Run it with a short description of what you want to build:
@@ -65,6 +67,32 @@ It enters plan mode (where the harness supports it), explores the relevant repos
 | Claude Code | `/baz:plan-with-baz <description>` | enters plan mode automatically (one-click confirm) |
 | Cursor | `/plan-with-baz <description>` | prompts you to switch to Plan mode |
 | Codex | invoke the `plan-with-baz` skill | runs read-only, no writes until you approve |
+
+## Review command
+
+**`/baz:review`** reviews your changes the way a reviewer with the whole org's code in front of them would. It resolves a diff, reads the changed files for context, then uses the Baz tools to check the change against repos you don't have checked out — the caller in another service that still passes the old signature, the consumer that reads a field you just renamed, the registration site your new enum value is missing from.
+
+```text
+/baz:review                        # everything not yet on the base branch
+/baz:review committed              # only commits on this branch
+/baz:review uncommitted            # only staged + unstaged edits
+/baz:review --include-untracked    # also review new, untracked files
+/baz:review --base develop         # compare against a different base
+/baz:review --pr 42                # review an open PR (needs gh / glab)
+/baz:review --fix                  # review, then apply the fixes it finds
+```
+
+Findings come back grouped by severity, each with a `file:line`, the conditions that make it fail, and a fix. Cross-repo findings name the repo they're in. Style nits and pre-existing issues the diff didn't touch are deliberately left out.
+
+You can also just ask — "review my changes", "check this branch for security issues" — and the skill triggers on its own.
+
+With `--fix` (or when you ask afterwards), it turns the findings into a task list, shows it, then works through it one finding at a time, running the project's tests and linter if there are any. It only edits the repo you have checked out; findings in other repos are reported, not edited.
+
+| Platform | How to invoke |
+|---|---|
+| Claude Code | `/baz:review [scope]` |
+| Cursor | `/review [scope]` |
+| Codex | invoke the `review` skill |
 
 ## License
 
