@@ -22,7 +22,16 @@ Reviewing is **read-only**. Do not edit files, amend commits, or push. The one e
 
 ## Step 1: Resolve the scope
 
-Parse `$ARGUMENTS`, then build the diff. Default base is the remote default branch (`git symbolic-ref refs/remotes/origin/HEAD`, falling back to `main`, then `master`); `--base <branch>` overrides it.
+Parse `$ARGUMENTS`, then build the diff.
+
+**Resolve the base branch first**, and confirm the ref actually resolves before you diff against it — `--base <branch>` overrides all of this. Walk the ladder in order, taking the first that resolves under `git rev-parse --verify`:
+
+1. `git symbolic-ref refs/remotes/origin/HEAD` — the remote's declared default. Commonly absent in a fresh or CI clone; that is expected, fall through.
+2. `origin/main`, then `origin/master`.
+3. `main`, then `master` (local branches, for a repo with no remote).
+4. **Nothing resolved** — you are most likely in a shallow or `--single-branch` clone, where the base branch simply isn't in the object store. Do not diff against `HEAD~1` and hope. Run `git fetch --depth=100 origin <branch>` to pull the base in, or ask the user which base to use. Say which one you did.
+
+Never assume `main` exists because the repo looks like it should have one — `rev-parse --verify` it. Diffing against a ref that doesn't resolve produces a git error mid-review; diffing against the *wrong* ref silently reviews the wrong changes, which is worse.
 
 | Argument | What to review | How to get it |
 |---|---|---|
