@@ -15,9 +15,12 @@ hooks/
   post-tool-use.js              Shared: increments per-tool counter in /tmp on each Baz MCP call
   session-end.js                Shared: prints call summary to console at session end, cleans up /tmp
 
-  hooks.json                    CC hooks: SessionStart + PostToolUse (mcp__baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
-  hooks.codex.json              Codex hooks: SessionStart + PostToolUse (mcp__baz__ + apply_patch|Write|Edit) + Stop, ${CODEX_PLUGIN_DIR}
-  hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only). No session-end wiring — Cursor's validator does not accept `sessionEnd`; see Hook counter mechanics for the counter-file trade-off. ${CURSOR_PLUGIN_ROOT}
+  hooks.json                    CC hooks: SessionStart + PostToolUse (baz MCP + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
+  hooks.codex.json              Codex hooks: SessionStart + PostToolUse (baz MCP + apply_patch|Write|Edit) + Stop, ${CODEX_PLUGIN_DIR}
+  hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (baz MCP + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only). No session-end wiring — Cursor's validator does not accept `sessionEnd`; see Hook counter mechanics for the counter-file trade-off. ${CURSOR_PLUGIN_ROOT}
+
+bin/
+  baz-statusline                CC only: status-line script reading the same /tmp counter, prints "baz 7 · grep 4 · repo 2 · files 1". Users wire it via statusLine in their own settings.json — plugin settings.json only supports `agent` and `subagentStatusLine`.
 
 skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
 skills/plan-with-baz/SKILL.md              Task skill: manual /baz:plan-with-baz planning command
@@ -53,6 +56,8 @@ All three live under `skills/` and ship to all three platforms with no manifest 
 | Codex | `SessionStart` | `PostToolUse` | `Stop` | `${CODEX_PLUGIN_DIR}` |
 | Cursor | `sessionStart` | `postToolUse` | *(none — see below)* | `${CURSOR_PLUGIN_ROOT}` |
 
+**Tool-name matching — two spellings.** The counter matcher is `mcp__(plugin_)?baz(_baz)?__`, not `mcp__baz__`. Claude Code namespaces a plugin-provided MCP server, so tools arrive as `mcp__plugin_baz_baz__<tool>`; a bare `mcp__baz__` matcher never fires there and the counter file is never created (which also empties `repoNames` on `update_plan`, since `.baz-repos` comes from the same hook). `post-tool-use.js` strips whichever prefix it gets with `^mcp__.*?__` before recording the short tool name. Any change to the plugin or server name has to be reflected in all three manifests.
+
 **Cursor limitation — no counter/summary.** Cursor's hook validator does not recognize `sessionEnd`, and using its per-turn `stop` for `session-end.js` would wipe the counter mid-session. Rather than leak `/tmp/.baz-counts-<sessionId>.json` forever with no reaper, `post-tool-use.js` short-circuits on Cursor payloads (detected via `conversation_id` without `session_id`). Cursor users get no tool-usage summary at session end — accepted as consistent with the "Cursor is best-effort" posture (see the Completion-trigger design section: no automated postToolUse nudge on Cursor either).
 
 **Codex limitation.** Codex has no session-end event — its only lifecycle event past `PostToolUse` is `Stop`, which fires per-turn. That means `session-end.js` on Codex prints/clears the counter after every turn, and the summary reflects only the last turn's calls. Fixing this requires either an upstream Codex hook addition or a different consumer-owned cleanup pattern.
@@ -74,7 +79,7 @@ Both paths converge on `mcp__baz__update_plan`. BFF upserts the plan and flips t
    update all three `hooks.*.json` files. Note that Cursor uses camelCase event
    names + a flatter manifest shape (no nested `hooks` array, command directly on the entry).
 3. The `PostToolUse` block in `hooks.json` has three matchers today:
-   - `mcp__baz__` → `post-tool-use.js` (counts baz MCP tool calls)
+   - `mcp__(plugin_)?baz(_baz)?__` → `post-tool-use.js` (counts baz MCP tool calls; see Hook counter mechanics for why both spellings)
    - `Write|Edit` → `plan-complete.js` (file-write branch: fires when the agent writes `/tmp/.baz-plan-<sessionId>.md` outside plan mode)
    - `ExitPlanMode` → `plan-complete.js` (plan-mode branch: fires when the agent exits CC's plan mode)
    Add new matchers as additional entries in the same `PostToolUse` array.

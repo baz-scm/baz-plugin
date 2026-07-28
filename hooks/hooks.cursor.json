@@ -8,7 +8,7 @@
     ],
     "postToolUse": [
       {
-        "matcher": "mcp__baz__",
+        "matcher": "mcp__(plugin_)?baz(_baz)?__",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/post-tool-use.js\""
       },
       {

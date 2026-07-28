@@ -13,7 +13,10 @@ if (!sessionId) process.exit(0);
 const isCursor = !d.session_id && d.conversation_id;
 
 if (!isCursor) {
-  const toolName = (d.tool_name || '').split('__baz__')[1] || d.tool_name;
+  // Strip the MCP prefix, which differs per host: `mcp__baz__<tool>` when the
+  // server is wired directly, `mcp__plugin_baz_baz__<tool>` when Claude Code
+  // namespaces it as a plugin-provided server.
+  const toolName = (d.tool_name || '').replace(/^mcp__.*?__/, '') || d.tool_name;
   const logPath = `/tmp/.baz-counts-${sessionId}.json`;
   // Append-only: each call writes one line; avoids concurrent read/modify/write race.
   fs.appendFileSync(logPath, toolName + '\n');

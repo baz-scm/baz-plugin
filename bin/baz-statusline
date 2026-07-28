@@ -1,0 +1,55 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+// Status line segment: tallies this session's baz MCP calls from the counter
+// file `post-tool-use.js` appends to, and prints one line:
+//
+//   baz 7 · grep 4 · repo 2 · files 1
+//
+// Prints nothing until the session has made its first baz call, and exits
+// quietly on any read/parse failure — a status line must never surface an
+// error into the UI. `session-end.js` deletes the counter file, after which
+// this goes back to printing nothing.
+
+const LABELS = {
+  repo_search: 'repo',
+  remote_grep: 'grep',
+  remote_file_search: 'files',
+  update_plan: 'plan',
+  get_review_discussions: 'discussions',
+  organizational_review_guidelines: 'guidelines',
+  load_resources: 'resources',
+};
+
+let d;
+try {
+  d = JSON.parse(fs.readFileSync('/dev/stdin', 'utf8'));
+} catch {
+  process.exit(0);
+}
+
+// Cursor payloads use `conversation_id`; Claude Code and Codex use `session_id`.
+const sessionId = d.session_id || d.conversation_id || '';
+if (!sessionId) process.exit(0);
+
+let raw;
+try {
+  raw = fs.readFileSync(path.join('/tmp', `.baz-counts-${sessionId}.json`), 'utf8');
+} catch {
+  // No baz call yet this session, or the file was already reaped.
+  process.exit(0);
+}
+
+const lines = raw.split('\n').filter(Boolean);
+if (lines.length === 0) process.exit(0);
+
+const counts = {};
+for (const tool of lines) counts[tool] = (counts[tool] || 0) + 1;
+
+const segments = Object.entries(counts)
+  .sort(([, a], [, b]) => b - a)
+  .map(([tool, count]) => `${LABELS[tool] || tool} ${count}`);
+
+process.stdout.write(`baz ${lines.length} · ${segments.join(' · ')}\n`);

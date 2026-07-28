@@ -96,6 +96,29 @@ With `--fix` (or when you ask afterwards), it turns the findings into a task lis
 | Cursor | `/review [scope]` |
 | Codex | invoke the `review` skill |
 
+## Status line
+
+Claude Code only. `bin/baz-statusline` renders this session's Baz tool usage as a status-line row:
+
+```text
+baz 7 · grep 4 · repo 2 · files 1
+```
+
+Plugins can't ship a `statusLine` of their own, so add it to your `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "baz-statusline"
+  }
+}
+```
+
+The plugin's `bin/` is on Claude Code's `PATH` while the plugin is enabled. If the row stays blank after a Baz search, point `command` at the script's absolute path under `~/.claude/plugins/cache/baz/baz/<version>/bin/` instead — note that path carries the plugin version and changes on update.
+
+The row is empty until the session's first Baz call, and empties again at session end when the counter file is reaped. It reads the same counter that prints the end-of-session usage summary.
+
 ## License
 
 MIT

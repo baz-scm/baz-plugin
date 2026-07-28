@@ -12,7 +12,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__baz__",
+        "matcher": "mcp__(plugin_)?baz(_baz)?__",
         "hooks": [
           {
             "type": "command",
