@@ -26,7 +26,7 @@ Get into plan mode before exploring, where the harness supports it:
 
 ## Step 2: Explore with Baz
 
-**Load and follow the `baz-codebase-exploration` skill for every search, read, and planning decision in this run.** It is the authoritative source for tool routing, the search budget, the builder-vs-proxy and verify-before-you-assert checks, and the "enumerate an existing peer's registration sites" completeness rule. Invoke it now (via the Skill tool on Claude Code; on Cursor it is already applied as an always-on rule) and treat its rules as binding. This wrapper owns only the wrapper concerns — plan mode (Step 1), the plan-document schema and baz session close (Step 3), and approval (Step 4).
+**Load and follow the `baz-codebase-exploration` skill for every search, read, and planning decision in this run.** It is the authoritative source for tool routing, the search budget, the builder-vs-proxy and verify-before-you-assert checks, and the "enumerate an existing peer's registration sites" completeness rule. Invoke it now (via the Skill tool on Claude Code; on Cursor it is already applied as an always-on rule) and treat its rules as binding. This wrapper owns only the wrapper concerns — plan mode (Step 1), the plan-document schema and baz session close (Step 3), the plan link (Step 4), and approval (Step 5).
 
 If for any reason that skill is not in your context, these non-negotiables still apply — but prefer the full skill:
 
@@ -80,6 +80,16 @@ Things the user should decide before implementation begins.
 How to test the change end-to-end (run the code, MCP tools, tests).
 ```
 
-## Step 4: Get approval
+## Step 4: Show the plan link
+
+Every time `mcp__baz__update_plan` succeeds — the first write and every later update — end your response with a link to the plan in the Baz UI. The tool result carries `seriesId=<id>`; the link is `https://baz.co/plans/<seriesId>`. Render it as:
+
+```markdown
+📋 [View plan in Baz](https://baz.co/plans/<seriesId>)
+```
+
+Never skip it and never invent the id — take it from the tool result of the call you just made. If the user is on a self-hosted Baz, swap `baz.co` for their host.
+
+## Step 5: Get approval
 
 Present the plan and ask the user to approve before any implementation begins (on Claude Code, exit plan mode to request approval). Do not start editing until they say go.
