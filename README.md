@@ -68,6 +68,10 @@ It enters plan mode (where the harness supports it), explores the relevant repos
 | Cursor | `/plan-with-baz <description>` | prompts you to switch to Plan mode |
 | Codex | invoke the `plan-with-baz` skill | runs read-only, no writes until you approve |
 
+### Sharing a plan to Baz
+
+Once a plan is written, the agent asks whether to upload it to Baz. **Nothing is uploaded unless you say yes** — the plan lands on your organization's Baz timeline, where teammates can open, comment on, and review it, so it's your call every time. Say yes and the agent replies with a link to the plan; say no and the plan stays entirely local.
+
 ## Review command
 
 **`/baz:review`** reviews your changes the way a reviewer with the whole org's code in front of them would. It resolves a diff, reads the changed files for context, then uses the Baz tools to check the change against repos you don't have checked out — the caller in another service that still passes the old signature, the consumer that reads a field you just renamed, the registration site your new enum value is missing from.

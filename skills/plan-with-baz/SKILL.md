@@ -47,8 +47,8 @@ Produce the plan in the fixed schema below — **always emit every section headi
 
 Where to put it:
 - **Claude Code**: write it to the plan file plan mode gives you (writing that file is what plan mode is for).
-- **Codex** (no plan mode): write the plan to `/tmp/.baz-plan-<sessionId>.md` using `apply_patch` (or your equivalent file-write tool), **and** present the same content inline in your response. Writing that scratch file is what closes the planning session in baz's timeline — the baz plugin's `postToolUse` hook watches for it and injects the follow-up instruction telling you to call `mcp__baz__update_plan`. This scratch file is exempt from the "read-only until approval" rule (see the intro). After the user approves the plan, save it to `baz-plan.md` if they want it persisted.
-- **Cursor** (no plan mode, no postToolUse nudge): write the plan to `/tmp/.baz-plan-<sessionId>.md` with `edit_file` / `write_file` / `Write` / `Edit`, **and** present the same content inline. Cursor drops the postToolUse `additionalContext` for non-MCP tools, so no automated follow-up nudge will arrive — you MUST call `mcp__baz__update_plan` yourself as your very next tool call, passing `sessionId` and `content` set to the exact plan text you just wrote (verbatim, no summary). The SessionStart context tells you the same thing; treat both as non-negotiable. This scratch file is exempt from the "read-only until approval" rule (see the intro). After the user approves the plan, save it to `baz-plan.md` if they want it persisted.
+- **Codex** (no plan mode): write the plan to `/tmp/.baz-plan-<sessionId>.md` using `apply_patch` (or your equivalent file-write tool), **and** present the same content inline in your response. The baz plugin's `postToolUse` hook watches for that write and prompts you to ask about uploading. This scratch file is exempt from the "read-only until approval" rule (see the intro). After the user approves the plan, save it to `baz-plan.md` if they want it persisted.
+- **Cursor** (no plan mode, no postToolUse prompt): write the plan to `/tmp/.baz-plan-<sessionId>.md` with `edit_file` / `write_file` / `Write` / `Edit`, **and** present the same content inline. Cursor drops the postToolUse `additionalContext` for non-MCP tools, so no automated prompt will arrive — raise the upload question yourself (Step 5). This scratch file is exempt from the "read-only until approval" rule (see the intro). After the user approves the plan, save it to `baz-plan.md` if they want it persisted.
 
 Add diagrams alongside the prose where they clarify the change — Markdown ```mermaid``` blocks render in all three harnesses:
 - an **ERD** (`erDiagram`) when the change touches a data model / schema;
@@ -83,3 +83,17 @@ How to test the change end-to-end (run the code, MCP tools, tests).
 ## Step 4: Get approval
 
 Present the plan and ask the user to approve before any implementation begins (on Claude Code, exit plan mode to request approval). Do not start editing until they say go.
+
+## Step 5: Offer to upload the plan to Baz
+
+Writing the plan file is local and needs no permission. Uploading is different: `mcp__baz__update_plan` (fully qualified — `update_plan` alone is not a callable tool name) publishes the plan to your organization's Baz timeline, where teammates can open, comment on, and review it. **That is never automatic — ask the user and wait for their answer.**
+
+- **If they say yes**: call `mcp__baz__update_plan` exactly once with `sessionId` and `content` set to the exact plan text you wrote (verbatim, no summary). Where a hook supplied authoritative `content` / `tokensUsed` / `modelId` / `repoNames` values, pass those exactly as given rather than your own recollection or estimates. The tool result contains a **shareable plan link** — include it in your reply so the user can open the plan.
+- **If they say no**: don't call it, and don't raise it again this session. The planner session stays open in baz's timeline; that's the accepted cost of not uploading.
+- Ask **once** per planning session. A hook may prompt you more than once for the same plan (on Claude Code it can fire both when the plan file is written and again on approval) — if you already have the user's answer, honor it instead of re-asking.
+
+A hook instruction telling you to call `update_plan` is a prompt to **ask**, not the user's permission. Only a direct answer from the user is consent.
+
+Per-platform mechanics:
+- **Claude Code and Codex**: a PostToolUse hook watches the plan-file write and injects the upload question along with the authoritative values.
+- **Cursor**: no PostToolUse prompt is delivered (Cursor drops `additionalContext` from non-MCP-tool hooks), so raise the question yourself right after the file write. Token counts aren't available client-side and should be omitted.

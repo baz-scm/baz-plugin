@@ -111,13 +111,8 @@ Based on what you found, propose:
 - Do **not** bulk-crawl or list a repo's tree to search — use `remote_file_search` / `remote_grep`.
 - Do **not** delegate this exploration to a generic or local-only subagent (e.g. a plain `Explore` agent) — it silently falls back to local Read/Grep and skips Baz. If you spawn a subagent and the work reaches code outside the local checkout (another repo, or the side of a contract you don't own), its prompt **must** tell it to use the Baz MCP tools (`repo_search` / `remote_grep` / `remote_file_search`) per this skill's routing rules.
 
-## Session tracking — required
+## Search-call arguments — required
 
 The baz plugin's SessionStart hook injects your `sessionId`, the cwd repo (`sessionRepository`), and the client name (`agentVendor`, e.g. `claude-code`, `codex`, `cursor`) into your context. **You MUST pass all three as arguments on every call to `repo_search`, `remote_grep`, and `remote_file_search`.** Without them, baz cannot correlate your tool calls to a session and the calls are dropped from baz's timeline. This is non-negotiable — treat the values as required, not optional, regardless of what the tool schema marks them as.
 
-### Closing the session — required at end of planning
-
-When you've finished planning and are ready to present the plan to the user, **write the final plan to `/tmp/.baz-plan-<sessionId>.md`** (substitute your real sessionId). **Your next tool call after writing the file MUST be `mcp__baz__update_plan`** (fully qualified — not `update_plan` alone, which is not a callable tool name); pass `sessionId` and `content` set to the exact plan text you just wrote (verbatim). This tool call is what tells baz to persist this as the final plan and close the planner session. Don't respond to the user or run any other tool in between. Skipping this leaves the session open in baz's timeline forever. Call it exactly once per planning session.
-
-- **Claude Code and Codex**: a PostToolUse hook watches the plan-file write and injects an instruction with authoritative `content` and (where available) `tokensUsed` values. Pass those exactly as given — do not substitute your own recollection or estimates.
-- **Cursor**: no PostToolUse nudge is delivered (Cursor drops `additionalContext` from non-MCP-tool hooks). Call `mcp__baz__update_plan` yourself immediately after the file write, passing `sessionId` and `content` set to the exact plan text you just wrote (verbatim). Token counts aren't available client-side and should be omitted.
+This skill covers search only. What to do with a finished plan — writing it, and whether to upload it to Baz — belongs to the planning flow, not here: see the `plan-with-baz` skill, or follow the instruction the baz plugin's hooks inject when planning ends.
