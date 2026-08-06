@@ -70,7 +70,7 @@ It enters plan mode (where the harness supports it), explores the relevant repos
 
 ### Sharing a plan to Baz
 
-Once a plan is written, the agent asks whether to upload it to Baz. **Nothing is uploaded unless you say yes** — the plan lands on your organization's Baz timeline, where teammates can open, comment on, and review it, so it's your call every time. Say yes and the agent replies with a link to the plan; say no and the plan stays entirely local.
+Once a plan is written, the agent asks whether to upload it to Baz. **The plan is never uploaded unless you say yes** — say yes and you get a link to it on your organization's Baz timeline, where teammates can open, comment on, and review it.
 
 ## Review command
 
