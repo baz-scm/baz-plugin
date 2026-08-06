@@ -349,8 +349,13 @@ const instruction = [
     ` plan is discoverable under each of these repos.`,
   `If they say no, do not call the tool and do not raise it again this session;` +
     ` the planner session simply stays open in baz's timeline, which is the` +
-    ` accepted cost of not uploading. If you already asked during this session,` +
-    ` honor the answer you were given instead of asking a second time.`,
+    ` accepted cost of not uploading.`,
+  `If you already asked during this session, do NOT ask again — reuse the answer` +
+    ` you were given. If that answer was yes, still call the tool again now,` +
+    ` using the \`content\` in THIS instruction: it supersedes any earlier draft,` +
+    ` so this is how the version the user ultimately approved reaches the` +
+    ` timeline. Identical content is deduped server-side, so a redundant call` +
+    ` costs nothing.`,
   `The tool result contains a shareable plan link — include that link in your` +
     ` reply so the user can open the uploaded plan.`,
 ].filter(Boolean).join(' ');
