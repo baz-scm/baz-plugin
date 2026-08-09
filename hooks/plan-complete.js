@@ -2,16 +2,22 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-// PostToolUse hook that emits the "call mcp__baz__update_plan next" nudge
-// once planning is done. Three trigger paths converge here:
+// PostToolUse hook that, once planning is done, prompts the agent to ASK the
+// user whether to upload the plan to baz. Uploading is deliberately not
+// automatic: `mcp__baz__update_plan` publishes the plan to the org's timeline
+// where teammates can read it, so the user gets to decide. This hook never
+// authorizes the call — it supplies the authoritative arguments and instructs
+// the agent to obtain consent first. Three trigger paths converge here:
 //
 //   1. CC's ExitPlanMode — agent used plan mode and the user approved.
 //   2. CC's Write to the plan-mode plan file at ~/.claude/plans/<name>.md —
 //      agent has drafted the plan but the user hasn't approved yet. We fire
-//      the nudge here so the plan lands in baz's timeline as soon as it
-//      exists, without waiting on approval. If the user later approves and
-//      ExitPlanMode fires, the follow-up update_plan call is deduped
-//      server-side by content hash (identical content → same version).
+//      here so the offer to upload is made as soon as the plan exists, without
+//      waiting on approval — but the upload itself still waits on the user's
+//      yes. If the user later approves and ExitPlanMode fires, the agent is
+//      told to honor the answer it already has rather than re-ask, and any
+//      duplicate update_plan call is deduped server-side by content hash
+//      (identical content → same version).
 //   3. File-write tools (Write/Edit/apply_patch/edit_file/write_file) — agent
 //      planned inline and wrote its final plan to /tmp/.baz-plan-<sessionId>.md
 //      per SKILL.md / .cursor/rules / AGENTS.md. Used by Codex / Cursor and by
@@ -317,9 +323,14 @@ const modelId = usage && usage.modelId;
 const repoNames = collectRepos(sessionId, cwdFromHookInput(d));
 
 const instruction = [
-  `REQUIRED — DO THIS NOW: You just finished planning.` +
-    ` Your next tool invocation MUST be \`mcp__baz__update_plan\` with` +
-    ` \`sessionId: "${sessionId}"\` and` +
+  `ASK THE USER — DO NOT UPLOAD YET: You just finished planning. Baz can` +
+    ` persist this plan and close the planner session, which publishes it to` +
+    ` your organization's Baz timeline where teammates can read it. This is` +
+    ` NOT automatic and this instruction is NOT the user's permission.` +
+    ` In your next message, ask the user plainly whether to upload the plan to` +
+    ` Baz, and wait for their answer.`,
+  `If — and only if — they say yes, call \`mcp__baz__update_plan\` exactly once` +
+    ` with \`sessionId: "${sessionId}"\` and` +
     ` \`content: ${JSON.stringify(planContent)}\` — this is the authoritative` +
     ` plan text (read from the tool input or the plan file on disk); pass the` +
     ` string exactly as given.`,
@@ -336,9 +347,17 @@ const instruction = [
     ` repositories relevant to this plan (the session's root repo plus every` +
     ` repo searched via baz MCP tools). Pass the array exactly as given so the` +
     ` plan is discoverable under each of these repos.`,
-  `This tool call persists the plan and closes the planner session on the` +
-    ` timeline. Call it exactly once, before responding to the user or running` +
-    ` any other tool.`,
+  `If they say no, do not call the tool and do not raise it again this session;` +
+    ` the planner session simply stays open in baz's timeline, which is the` +
+    ` accepted cost of not uploading.`,
+  `If you already asked during this session, do NOT ask again — reuse the answer` +
+    ` you were given. If that answer was yes, still call the tool again now,` +
+    ` using the \`content\` in THIS instruction: it supersedes any earlier draft,` +
+    ` so this is how the version the user ultimately approved reaches the` +
+    ` timeline. Identical content is deduped server-side, so a redundant call` +
+    ` costs nothing.`,
+  `The tool result contains a shareable plan link — include that link in your` +
+    ` reply so the user can open the uploaded plan.`,
 ].filter(Boolean).join(' ');
 
 process.stdout.write(JSON.stringify({

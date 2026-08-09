@@ -1,6 +1,6 @@
 # baz-plugin
 
-Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools. All three platforms wire a session-start hook that surfaces session id + cwd repo so baz can correlate tool calls, and a PostToolUse hook that watches for the agent writing its final plan to `/tmp/.baz-plan-<sessionId>.md` — that file-write is the cross-platform "I'm done planning" signal that nudges the agent to call `mcp__baz__update_plan`, which persists the plan and emits the `planner_session_completed` timeline event.
+Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools. All three platforms wire a session-start hook that surfaces session id + cwd repo so baz can correlate tool calls, and a PostToolUse hook that watches for the agent writing its final plan to `/tmp/.baz-plan-<sessionId>.md` — that file-write is the cross-platform "I'm done planning" signal that prompts the agent to ask the user whether to upload the plan. Only on the user's yes does it call `mcp__baz__update_plan`, which persists the plan, emits the `planner_session_completed` timeline event, and returns a shareable plan link.
 
 ## Repo layout
 
@@ -11,7 +11,7 @@ Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools
 
 hooks/
   session-start.js              Shared: emits additionalContext telling the assistant the session id + cwd repo (allowlist-validated), so it passes them through to baz MCP tools for session correlation. Handles `cwd` (CC/Codex) and `workspace_roots[0]` (Cursor).
-  plan-complete.js              Shared completion trigger: prompts the agent to call mcp__baz__update_plan. Branches on tool_name — ExitPlanMode (CC plan mode) always fires; file-write tools (Write/Edit/apply_patch/edit_file/write_file) fire only when the path matches /tmp/.baz-plan-<sessionId>.md. CC wires both branches; Cursor/Codex have no ExitPlanMode and rely on the file-write branch. Exits quietly if the plan text can't be extracted — update_plan requires content.
+  plan-complete.js              Shared completion trigger: prompts the agent to ASK the user whether to upload the plan, then call mcp__baz__update_plan only on a yes (see "Upload requires user consent"). Branches on tool_name — ExitPlanMode (CC plan mode) always fires; file-write tools (Write/Edit/apply_patch/edit_file/write_file) fire only when the path matches /tmp/.baz-plan-<sessionId>.md. CC wires both branches; Cursor/Codex have no ExitPlanMode and rely on the file-write branch. Exits quietly if the plan text can't be extracted — update_plan requires content.
   post-tool-use.js              Shared: increments per-tool counter in /tmp on each Baz MCP call
   session-end.js                Shared: prints call summary to console at session end, cleans up /tmp
 
@@ -29,8 +29,8 @@ skills/review/SKILL.md                     Task skill: /baz:review diff review, 
 
 Three skills, by type:
 
-- **`baz-codebase-exploration`** — *reference* content. Auto-loaded; the tool-routing rules + search budget. Also mirrored as a Cursor always-apply rule (`.cursor/rules/*.mdc`).
-- **`plan-with-baz`** — *task* content. Manually invoked as `/baz:plan-with-baz` (`disable-model-invocation: true` so Claude won't auto-trigger it). Enters plan mode per-harness, explores via Baz, and emits a plan in a fixed section schema. It defers the detailed routing rules to `baz-codebase-exploration` rather than forking the table.
+- **`baz-codebase-exploration`** — *reference* content. Auto-loaded; the tool-routing rules + search budget, **and nothing else**. Its only session-tracking content is the `sessionId`/`sessionRepository`/`agentVendor` arguments that search calls require. What happens to a finished plan is not its concern — that boundary is deliberate and has been re-broken before, so resist re-adding plan lifecycle here. Also mirrored as a Cursor always-apply rule (`.cursor/rules/*.mdc`).
+- **`plan-with-baz`** — *task* content. Manually invoked as `/baz:plan-with-baz` (`disable-model-invocation: true` so Claude won't auto-trigger it). Enters plan mode per-harness, explores via Baz, emits a plan in a fixed section schema, and owns the **whole plan lifecycle** including the Step 5 upload-consent contract. It defers the detailed routing rules to `baz-codebase-exploration` rather than forking the table.
 - **`review`** — *task* content. Invoked as `/baz:review [scope]`, and unlike `plan-with-baz` it **omits** `disable-model-invocation`, so "review my changes" triggers it too — natural-language invocation is the point of parity with competing review plugins. Resolves a git/PR diff, reads the changed files, then spends the `baz-codebase-exploration` search budget on the checks only indexed search can make: broken call sites in other repos, the far side of a contract, and registration sites a new case is missing from. Optional `--fix` loop applies findings in the local checkout only.
 
 All three live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. `plan-with-baz` and `review` are on-demand, so neither has a `.cursor/rules/*.mdc` mirror (rules are always-apply).
@@ -62,9 +62,21 @@ All three live under `skills/` and ship to all three platforms with no manifest 
 `planner_session_completed` is emitted server-side when the agent calls `mcp__baz__update_plan`. That single tool call also upserts the plan into baz's plans store (`series_key = sessionId`). The agent needs a "planning is over" signal, but the right signal differs per platform:
 
 - **Claude Code**: two PostToolUse matchers both point at `plan-complete.js` — `ExitPlanMode` (CC's native end-of-planning tool, used when the agent is in plan mode which blocks file writes) and `Write|Edit` (the file-write branch, fires when the agent plans without entering plan mode and writes the plan file inline).
-- **Cursor / Codex**: no `ExitPlanMode` tool. SKILL.md / `.cursor/rules/...mdc` / `AGENTS.md` instruct the agent to write its final plan to `/tmp/.baz-plan-<sessionId>.md` at end of planning; `plan-complete.js` matches that write across the platform's file-write tools (`apply_patch|Write|Edit` on Codex, `edit_file|write_file|Write|Edit` on Cursor) and injects the nudge.
+- **Cursor / Codex**: no `ExitPlanMode` tool, so writing `/tmp/.baz-plan-<sessionId>.md` is the only end-of-planning signal available. `plan-complete.js` matches that write across the platform's file-write tools (`apply_patch|Write|Edit` on Codex, `edit_file|write_file|Write|Edit` on Cursor) and injects the consent prompt. **`session-start.js` is what tells the agent to write that file** — it emits the completion contract for both `codex` and `cursor`. `plan-with-baz` says the same thing, but it's `disable-model-invocation: true`, so a user who plans without running the command would never write the file; the SessionStart branch is the only thing covering ad-hoc planning on those two platforms. Don't move this contract back into `baz-codebase-exploration` to solve that — it's platform plumbing, and that skill owns search routing only.
 
 Both paths converge on `mcp__baz__update_plan`. BFF upserts the plan and flips the reviewer_executions row to `status='success'` with `completed_at` set.
+
+### Upload requires user consent
+
+**`update_plan` is never called automatically.** Uploading publishes the plan to the org's Baz timeline where teammates can read it, so the user decides. `plan-complete.js` supplies the authoritative arguments and instructs the agent to *ask*; it does not authorize the call. On a "no" the agent skips the call and the planner session stays open in baz's timeline — accepted, and cheaper than publishing something the user didn't want shared.
+
+The consent gate is stated in four places that must stay in sync, because each is the only one some path sees: the hook instruction in `plan-complete.js` (the main path), the `codex`/`cursor` completion contract in `session-start.js` (Cursor gets no PostToolUse prompt, so it must self-raise the question), Step 5 of `skills/plan-with-baz/SKILL.md` (the `/baz:plan-with-baz` path), and the `update_plan` tool description in the `baz` repo (`mcp/src/index.ts`) — the last is the only copy that survives when the plugin isn't installed at all. It is deliberately **not** in `baz-codebase-exploration`.
+
+Consent is asked **once** per session. On Claude Code the hook can fire twice for one plan (the `~/.claude/plans/*.md` write, then `ExitPlanMode`); the instruction tells the agent to honor an answer it already has rather than re-ask, and identical resubmits are deduped server-side by content hash anyway.
+
+### Plan link
+
+`update_plan` returns a shareable `https://<BACKEND_BASE_URL>/plans/<seriesId>` URL (`mcp/src/tools/update-plan.ts`), built the same way as the plan links in bff's notification handlers. `/plans/:seriesId` is the addressable route, so the link uses the **series** id, not the version id. The tool result tells the agent to surface the link, and the skills repeat it — without that, a successful upload reads as a dead end to the user.
 
 
 ## Adding a new hook
