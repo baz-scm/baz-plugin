@@ -5,6 +5,10 @@ const d = JSON.parse(input);
 
 const sessionId = d.session_id || d.conversation_id || '';
 if (!sessionId) process.exit(0);
+
+// Unread if the user declined the upload, so drop it either way.
+try { fs.unlinkSync(`/tmp/.baz-plan-pending-${sessionId}.json`); } catch {}
+
 const logPath = `/tmp/.baz-counts-${sessionId}.json`;
 
 if (!fs.existsSync(logPath)) process.exit(0);
