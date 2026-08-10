@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/baz-scm/baz-plugin/compare/v0.6.0...v0.7.0) (2026-08-09)
+
+
+### Features
+
+* **plan:** CR-4972 require user consent before uploading a plan to Baz ([#23](https://github.com/baz-scm/baz-plugin/issues/23)) ([f7c2735](https://github.com/baz-scm/baz-plugin/commit/f7c2735ec205399dc7b173248d9ec27e1d9102a4))
+
 ## [0.6.0](https://github.com/baz-scm/baz-plugin/compare/v0.5.1...v0.6.0) (2026-07-27)
 
 
