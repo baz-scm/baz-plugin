@@ -20,10 +20,12 @@ The two-step structure is *your* procedure, not something the user needs to hear
 
 ## Which plan
 
-`mcp__baz__get_plan_comments` takes either argument:
+`mcp__baz__get_plan_comments` takes one argument, `planId` — the UUID in the plan URL `https://baz.co/plans/<planId>`.
 
-- **This session pushed the plan** — pass only `sessionId`. The plan is stored under `series_key = sessionId`, so the session id is the plan id.
-- **Any other case** (a new session, someone else's plan) — pass `planId`, the UUID in the plan URL `https://baz.co/plans/<planId>`. `$ARGUMENTS` may already hold it; accept a bare UUID or a full URL and extract the UUID.
+A plan pushed by an agent session is stored under that session's id, so the two are the same UUID:
+
+- **This session pushed the plan** — pass **your own session id** as `planId`.
+- **Any other case** (a new session, someone else's plan) — take the UUID from the plan URL. `$ARGUMENTS` may already hold it; accept a bare UUID or a full URL.
 
 If you have neither, ask for the plan link rather than guessing.
 
