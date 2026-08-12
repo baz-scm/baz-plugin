@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/baz-scm/baz-plugin/compare/v0.7.0...v0.8.0) (2026-08-12)
+
+
+### Features
+
+* **plan:** attach the plan to update_plan instead of re-typing it ([#25](https://github.com/baz-scm/baz-plugin/issues/25)) ([f40fee5](https://github.com/baz-scm/baz-plugin/commit/f40fee59526271da025c216948349802ee766111))
+
 ## [0.7.0](https://github.com/baz-scm/baz-plugin/compare/v0.6.0...v0.7.0) (2026-08-09)
 
 
