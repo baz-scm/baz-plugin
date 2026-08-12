@@ -15,7 +15,9 @@ hooks/
   post-tool-use.js              Shared: increments per-tool counter in /tmp on each Baz MCP call
   session-end.js                Shared: prints call summary to console at session end, cleans up /tmp
 
-  hooks.json                    CC hooks: SessionStart + PostToolUse (mcp__baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
+  plan-attach.js                Claude Code only: PreToolUse on mcp__baz__update_plan. Fills the call with the plan parked by plan-complete.js, so the plan is generated once instead of being re-typed into the call. Adds only what is missing, so a call that already carries content (Codex/Cursor) passes through.
+
+  hooks.json                    CC hooks: SessionStart + PreToolUse (mcp__baz__update_plan) + PostToolUse (mcp__baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
   hooks.codex.json              Codex hooks: SessionStart + PostToolUse (mcp__baz__ + apply_patch|Write|Edit) + Stop, ${CODEX_PLUGIN_DIR}
   hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only). No session-end wiring — Cursor's validator does not accept `sessionEnd`; see Hook counter mechanics for the counter-file trade-off. ${CURSOR_PLUGIN_ROOT}
 
@@ -49,7 +51,7 @@ All three live under `skills/` and ship to all three platforms with no manifest 
 
 | Platform | Session-start event | Tool event | Session-end event | Path variable |
 |---|---|---|---|---|
-| Claude Code | `SessionStart` | `PostToolUse` | `SessionEnd` | `${CLAUDE_PLUGIN_ROOT}` |
+| Claude Code | `SessionStart` | `PreToolUse` + `PostToolUse` | `SessionEnd` | `${CLAUDE_PLUGIN_ROOT}` |
 | Codex | `SessionStart` | `PostToolUse` | `Stop` | `${CODEX_PLUGIN_DIR}` |
 | Cursor | `sessionStart` | `postToolUse` | *(none — see below)* | `${CURSOR_PLUGIN_ROOT}` |
 
@@ -65,6 +67,14 @@ All three live under `skills/` and ship to all three platforms with no manifest 
 - **Cursor / Codex**: no `ExitPlanMode` tool, so writing `/tmp/.baz-plan-<sessionId>.md` is the only end-of-planning signal available. `plan-complete.js` matches that write across the platform's file-write tools (`apply_patch|Write|Edit` on Codex, `edit_file|write_file|Write|Edit` on Cursor) and injects the consent prompt. **`session-start.js` is what tells the agent to write that file** — it emits the completion contract for both `codex` and `cursor`. `plan-with-baz` says the same thing, but it's `disable-model-invocation: true`, so a user who plans without running the command would never write the file; the SessionStart branch is the only thing covering ad-hoc planning on those two platforms. Don't move this contract back into `baz-codebase-exploration` to solve that — it's platform plumbing, and that skill owns search routing only.
 
 Both paths converge on `mcp__baz__update_plan`. BFF upserts the plan and flips the reviewer_executions row to `status='success'` with `completed_at` set.
+
+### Who supplies the plan text
+
+On Claude Code the agent never re-types the plan: `plan-complete.js` parks the arguments in `/tmp/.baz-plan-pending-<sessionId>.json`, the agent calls `mcp__baz__update_plan` with no arguments, and `plan-attach.js` (PreToolUse) fills them in via `updatedInput` before the call is sent. Generating the plan a second time would cost output tokens and then cache writes when it re-enters context.
+
+Codex and Cursor have no `updatedInput`, so they keep receiving the plan inline in the hook instruction and pass it themselves. `plan-attach.js` only ever adds what is missing, so their calls pass through untouched. The parked file is Claude-only and is deleted by `session-end.js`.
+
+The call shape is stated in three places that must agree, since each is the only one some path sees: the hook instruction in `plan-complete.js`, Step 5 of `skills/plan-with-baz/SKILL.md`, and the `update_plan` tool description in the `baz` repo. A skill that still says "pass `content`" silently undoes this — the upload keeps working, only the saving disappears.
 
 ### Upload requires user consent
 

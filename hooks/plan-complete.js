@@ -54,6 +54,19 @@ function safeUnlink(filePath) {
   try { fs.unlinkSync(filePath); } catch {}
 }
 
+// Keep in sync with plan-attach.js.
+function pendingPayloadPath(sid) {
+  return path.join('/tmp', `.baz-plan-pending-${sid}.json`);
+}
+
+// False if it cannot be parked, so the caller falls back to inlining the plan.
+function writePendingPayload(sid, payload) {
+  try {
+    fs.writeFileSync(pendingPayloadPath(sid), JSON.stringify(payload), { mode: 0o600 });
+    return true;
+  } catch { return false; }
+}
+
 function readJsonlObjects(filePath) {
   const raw = safeReadFile(filePath);
   if (raw === null) return [];
@@ -322,6 +335,55 @@ const modelId = usage && usage.modelId;
 
 const repoNames = collectRepos(sessionId, cwdFromHookInput(d));
 
+// Claude Code: plan-attach.js (PreToolUse) fills the plan in, so it never
+// re-enters the conversation. Codex/Cursor have no updatedInput and keep
+// receiving it inline below.
+const attachesLocally =
+  vendor === 'claude-code' && writePendingPayload(sessionId, {
+    content: planContent,
+    tokensUsed: tokens,
+    modelId,
+    repoNames,
+    agentVendor: vendor,
+  });
+
+// Only the call shape differs between the two paths; the consent contract
+// around it is the same either way.
+const callShape = attachesLocally
+  ? [
+      `If — and only if — they say yes, call \`mcp__baz__update_plan\` exactly` +
+        ` once with NO arguments at all. The session id, plan text, token` +
+        ` counts, model id and repo names are attached automatically before the` +
+        ` call is sent. Re-typing the plan wastes tokens and risks drift.`,
+      `Revisions go in the plan file: edit it there and this hook re-runs, so` +
+        ` the version that reaches Baz is always the file's current text.`,
+    ]
+  : [
+      `If — and only if — they say yes, call \`mcp__baz__update_plan\` exactly once` +
+        ` with \`sessionId: "${sessionId}"\` and` +
+        ` \`content: ${JSON.stringify(planContent)}\` — this is the authoritative` +
+        ` plan text (read from the tool input or the plan file on disk); pass the` +
+        ` string exactly as given.`,
+      tokens &&
+        `Also pass \`tokensUsed: ${JSON.stringify(tokens)}\` — this is the` +
+        ` authoritative token count for this session, computed from the host` +
+        ` transcript. Pass the object exactly as given.`,
+      modelId &&
+        `Also pass \`modelId: ${JSON.stringify(modelId)}\` — this is the model id` +
+        ` read from the host transcript for this session. Pass the string exactly` +
+        ` as given.`,
+      repoNames.length > 0 &&
+        `Also pass \`repoNames: ${JSON.stringify(repoNames)}\` — this is the set of` +
+        ` repositories relevant to this plan (the session's root repo plus every` +
+        ` repo searched via baz MCP tools). Pass the array exactly as given so the` +
+        ` plan is discoverable under each of these repos.`,
+    ];
+
+const supersedes = attachesLocally
+  ? `the attached content supersedes any earlier draft`
+  : `using the \`content\` in THIS instruction: it supersedes any earlier draft,` +
+    ` so this is how the version the user ultimately approved reaches the timeline`;
+
 const instruction = [
   `ASK THE USER — DO NOT UPLOAD YET: You just finished planning. Baz can` +
     ` persist this plan and close the planner session, which publishes it to` +
@@ -329,33 +391,13 @@ const instruction = [
     ` NOT automatic and this instruction is NOT the user's permission.` +
     ` In your next message, ask the user plainly whether to upload the plan to` +
     ` Baz, and wait for their answer.`,
-  `If — and only if — they say yes, call \`mcp__baz__update_plan\` exactly once` +
-    ` with \`sessionId: "${sessionId}"\` and` +
-    ` \`content: ${JSON.stringify(planContent)}\` — this is the authoritative` +
-    ` plan text (read from the tool input or the plan file on disk); pass the` +
-    ` string exactly as given.`,
-  tokens &&
-    `Also pass \`tokensUsed: ${JSON.stringify(tokens)}\` — this is the` +
-    ` authoritative token count for this session, computed from the host` +
-    ` transcript. Pass the object exactly as given.`,
-  modelId &&
-    `Also pass \`modelId: ${JSON.stringify(modelId)}\` — this is the model id` +
-    ` read from the host transcript for this session. Pass the string exactly` +
-    ` as given.`,
-  repoNames.length > 0 &&
-    `Also pass \`repoNames: ${JSON.stringify(repoNames)}\` — this is the set of` +
-    ` repositories relevant to this plan (the session's root repo plus every` +
-    ` repo searched via baz MCP tools). Pass the array exactly as given so the` +
-    ` plan is discoverable under each of these repos.`,
+  ...callShape,
   `If they say no, do not call the tool and do not raise it again this session;` +
     ` the planner session simply stays open in baz's timeline, which is the` +
     ` accepted cost of not uploading.`,
   `If you already asked during this session, do NOT ask again — reuse the answer` +
-    ` you were given. If that answer was yes, still call the tool again now,` +
-    ` using the \`content\` in THIS instruction: it supersedes any earlier draft,` +
-    ` so this is how the version the user ultimately approved reaches the` +
-    ` timeline. Identical content is deduped server-side, so a redundant call` +
-    ` costs nothing.`,
+    ` you were given. If that answer was yes, call the tool again now, ${supersedes}.` +
+    ` Identical content is deduped server-side, so a redundant call costs nothing.`,
   `The tool result contains a shareable plan link — include that link in your` +
     ` reply so the user can open the uploaded plan.`,
 ].filter(Boolean).join(' ');
