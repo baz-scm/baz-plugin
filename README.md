@@ -81,6 +81,12 @@ Once a plan is written, the agent asks whether to upload it to Baz. **The plan i
 /baz:plan-comments https://baz.co/plans/<plan-id>    # any other plan
 ```
 
+| Platform | How to invoke |
+|---|---|
+| Claude Code | `/baz:plan-comments [plan url or id]` |
+| Cursor | `/plan-comments [plan url or id]` |
+| Codex | invoke the `plan-comments` skill |
+
 It reads every comment and prints one table — what each asks, whether the claim actually holds (checked against the code, with file and line), and what it would change in the plan. Comments are grouped by the Use / Skip decision reviewers made on the plan page: those marked **Use** come with a recommendation to apply, untriaged ones are reported for you to decide, and skipped ones are listed and left alone.
 
 **Nothing is written until you choose.** The agent doesn't edit the plan, post replies, or set anyone's Use/Skip decision off its own reading — marking a comment **Use** tells the agent to consider it, not to start editing. Pick the ones you want and it applies them, replies on each so the commenter is notified with what changed, and pushes a new plan version.
