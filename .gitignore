@@ -5,3 +5,6 @@
 
 # local plugin/skill testing
 .claude/
+
+# local scratch notes
+tmp/

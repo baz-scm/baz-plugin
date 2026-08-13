@@ -43,42 +43,88 @@ If for any reason that skill is not in your context, these non-negotiables still
 
 ## Step 3: Write the plan
 
-Produce the plan in the fixed schema below — **always emit every section heading, in this order**, even when a section is empty (write `_None._` rather than dropping the heading). The stable shape is the contract a future "share / push to Baz" step will parse.
+Produce the plan in the schema below, **emitting every heading, in this order**. The stable shape is the contract the Baz product parses when the plan is rendered.
 
 Where to put it:
 - **Claude Code**: write it to the plan file plan mode gives you (writing that file is what plan mode is for).
 - **Codex** (no plan mode): write the plan to `/tmp/.baz-plan-<sessionId>.md` using `apply_patch` (or your equivalent file-write tool), **and** present the same content inline in your response. The baz plugin's `postToolUse` hook watches for that write and prompts you to ask about uploading. This scratch file is exempt from the "read-only until approval" rule (see the intro). After the user approves the plan, save it to `baz-plan.md` if they want it persisted.
 - **Cursor** (no plan mode, no postToolUse prompt): write the plan to `/tmp/.baz-plan-<sessionId>.md` with `edit_file` / `write_file` / `Write` / `Edit`, **and** present the same content inline. Cursor drops the postToolUse `additionalContext` for non-MCP tools, so no automated prompt will arrive — raise the upload question yourself (Step 5). This scratch file is exempt from the "read-only until approval" rule (see the intro). After the user approves the plan, save it to `baz-plan.md` if they want it persisted.
 
-Add diagrams alongside the prose where they clarify the change — Markdown ```mermaid``` blocks render in all three harnesses:
-- an **ERD** (`erDiagram`) when the change touches a data model / schema;
-- a **flow or sequence diagram** when the change introduces a non-trivial control or data flow.
+Two layers, split by the `---` rule: above it is what a reviewer approves on, below it is what an implementer follows. Someone who was not in the session should be able to say yes or no without unfolding the bottom half.
 
 ```markdown
 # <title>
 
-## Context
-Why this change is being made — the problem, what prompted it, the intended outcome.
+## Why
+The problem and the intended outcome. A few sentences.
 
-## Affected repos & files
-- `<repo> · <path>` — what changes here and why
-  (works for repos not checked out locally — that's the point of Baz)
+## The change
+Open with **one paragraph, four sentences at most**, in plain language: what you
+are going to do and how it works once it lands. Someone who knows the product but
+not this code should follow it without reading anything below. No file paths.
 
-## Change sequence
-1. Ordered steps to implement.
+Then a **Before / After table** tracing one thing through the system (a request,
+a job, a record), one row per step, at most six rows, so the change reads across
+each row instead of by diffing two blocks:
 
-## Diagrams
-ERD for data-model changes and/or a flow/sequence diagram for non-trivial flows, as ```mermaid``` blocks. `_None._` if neither applies.
+| Step | Today | After |
+| --- | --- | --- |
+| <what happens at this point> | <current behaviour> | <what differs, or "unchanged"> |
 
-## Cross-repo coordination
-Anything that must land together across repos. `_None — single-repo change._` if not applicable.
+Mark each changed cell **(new)** or **(changed)**. Rows that are identical on both
+sides say "unchanged": they are what shows how much is being reused. Keep cells
+to one line; a step needing more than that is really two steps.
+
+No ASCII diagrams. Plans are read as rendered Markdown, where indentation-aligned
+art becomes a striped, unreadable block.
+
+Then one ```mermaid``` `sequenceDiagram` tracing the same journey at runtime:
+who calls whom, in order, ending where the result lands. Mark every participant
+and message `(new)` or `(unchanged)`; the unchanged ones are what show how much
+is reused. Keep it under six participants and ten messages. Past that it stops
+being readable, and the excess belongs in Steps.
+
+Use `erDiagram` instead when the change is mostly tables and columns, or
+`flowchart TD` when there is no runtime sequence to trace. One diagram; a second
+only if it answers a different question.
+
+## Decisions
+One bullet each, opening with a **bold few-word title** naming the choice, then
+two sentences at most:
+
+- **<Choice, a few words>.** Chose <A> over <B>, because <why, grounded in the code>. Cost: <what becomes harder>.
+
+Do not list the files a decision touches; those belong to the step that makes the
+change. Close with one bullet titled **Out of scope**.
 
 ## Open questions
-Things the user should decide before implementation begins.
+Only what genuinely blocks a decision. `_None._` otherwise. A question you could
+answer by reading the code is not an open question, it is unfinished research.
+
+---
+
+## Steps
+Ordered, **one sentence each**, naming at most two paths. No sub-bullets.
+
+When a change repeats across sites, give the pattern and the scale, not the
+list: *"wherever `<existing peer>` appears, about eight deployment files"*. The
+implementer greps for the peer and finds them all, including any you missed.
+
+Write for someone who reads the code as well as you do: do not explain what they
+will find on opening a file, restate reasoning from Decisions, or spell out a
+diff. Mark the load-bearing step. Where steps span repos, say what must land
+before what.
 
 ## Verification
-How to test the change end-to-end (run the code, MCP tools, tests).
+**Automated:** literal commands that prove it works.
+**Manual:** what a human must confirm.
 ```
+
+What goes in:
+
+- Keep what changes the right answer: a constraint, a tradeoff you settled. Leave out what the implementer re-derives by opening the file.
+- Describe a repeated change once: name the pattern, give two or three representative paths, never one bullet per file.
+- No em dashes. Use a colon, a comma, or two sentences.
 
 ## Step 4: Get approval
 

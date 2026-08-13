@@ -43,7 +43,9 @@ All three live under `skills/` and ship to all three platforms with no manifest 
 
 ### Plan output schema (Tier-3 contract)
 
-`plan-with-baz` emits a plan in a fixed, ordered section schema — the canonical definition is the Step 3 template in `skills/plan-with-baz/SKILL.md`. Every heading is always emitted in order (empty sections render as `_None._`), and diagrams are inline ```mermaid``` blocks. Keep that template stable — a future "share / push to Baz" step (rendering plans in the Baz product) will parse these headings. Edit the schema in the skill, not here.
+`plan-with-baz` emits a plan in a fixed, ordered section schema — the canonical definition is the Step 3 template in `skills/plan-with-baz/SKILL.md`. Every heading is emitted in order, and diagrams are inline ```mermaid``` blocks. Keep that template stable — the Baz product parses these headings when it renders a plan. Edit the schema in the skill, not here.
+
+The schema is two layers split by a `---` rule: `Why` / `The change` / `Decisions` / `Open questions` are what a reviewer approves on, and `Steps` / `Verification` below the rule are what an implementer follows. The split is what keeps a plan reviewable — file paths belong to the steps that need them, never gathered into a catalogue of their own, and a change repeated across many sites is described once as a pattern with a few representative paths. Renderers should treat the lower layer as collapsible.
 
 ## Hook counter mechanics
 
