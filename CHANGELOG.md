@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/baz-scm/baz-plugin/compare/v0.8.0...v0.9.0) (2026-08-13)
+
+
+### Features
+
+* add the /baz:plan-comments skill ([#27](https://github.com/baz-scm/baz-plugin/issues/27)) ([b448f46](https://github.com/baz-scm/baz-plugin/commit/b448f464f4ee0d9c14616930abf7a2a9a87d8f2e))
+
 ## [0.8.0](https://github.com/baz-scm/baz-plugin/compare/v0.7.0...v0.8.0) (2026-08-12)
 
 
