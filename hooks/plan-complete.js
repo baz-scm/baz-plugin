@@ -399,7 +399,9 @@ const instruction = [
     ` you were given. If that answer was yes, call the tool again now, ${supersedes}.` +
     ` Identical content is deduped server-side, so a redundant call costs nothing.`,
   `The tool result contains a shareable plan link — include that link in your` +
-    ` reply so the user can open the uploaded plan.`,
+    ` reply so the user can open the uploaded plan, and tell them they can run` +
+    ` \`/baz:plan-comments\` any time to pull the plan's comments back into this` +
+    ` session.`,
 ].filter(Boolean).join(' ');
 
 process.stdout.write(JSON.stringify({

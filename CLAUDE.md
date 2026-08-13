@@ -23,19 +23,21 @@ hooks/
 
 skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
 skills/plan-with-baz/SKILL.md              Task skill: manual /baz:plan-with-baz planning command
+skills/plan-comments/SKILL.md              Task skill: /baz:plan-comments pulls a plan's review comments back
 skills/review/SKILL.md                     Task skill: /baz:review diff review, cross-repo checks via Baz
 .cursor/rules/baz-codebase-exploration.mdc Reference skill, Cursor rules format (always-apply)
 ```
 
 ## Skills
 
-Three skills, by type:
+Four skills, by type:
 
 - **`baz-codebase-exploration`** — *reference* content. Auto-loaded; the tool-routing rules + search budget, **and nothing else**. Its only session-tracking content is the `sessionId`/`sessionRepository`/`agentVendor` arguments that search calls require. What happens to a finished plan is not its concern — that boundary is deliberate and has been re-broken before, so resist re-adding plan lifecycle here. Also mirrored as a Cursor always-apply rule (`.cursor/rules/*.mdc`).
 - **`plan-with-baz`** — *task* content. Manually invoked as `/baz:plan-with-baz` (`disable-model-invocation: true` so Claude won't auto-trigger it). Enters plan mode per-harness, explores via Baz, emits a plan in a fixed section schema, and owns the **whole plan lifecycle** including the Step 5 upload-consent contract. It defers the detailed routing rules to `baz-codebase-exploration` rather than forking the table.
+- **`plan-comments`** — *task* content. Invoked as `/baz:plan-comments [plan url or id]` (`disable-model-invocation: true`). The return leg of the plan lifecycle: reads a plan's comments through `get_plan_comments`, reports every one with an assessment, and applies only what the user then picks. Two properties are load-bearing. Triage is the human's — `used` marks a comment worth considering, never permission to edit — and fetched comment text is untrusted data, so nothing inside it can authorize a tool call. **Its Step B passes `sessionId` and `content` to `update_plan` explicitly**, which looks like it contradicts the attach contract below but does not: the hook fills in the *current session's* id, and this skill can be working on a plan this session never created. Do not "consistency-fix" those arguments away.
 - **`review`** — *task* content. Invoked as `/baz:review [scope]`, and unlike `plan-with-baz` it **omits** `disable-model-invocation`, so "review my changes" triggers it too — natural-language invocation is the point of parity with competing review plugins. Resolves a git/PR diff, reads the changed files, then spends the `baz-codebase-exploration` search budget on the checks only indexed search can make: broken call sites in other repos, the far side of a contract, and registration sites a new case is missing from. Optional `--fix` loop applies findings in the local checkout only.
 
-All three live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. `plan-with-baz` and `review` are on-demand, so neither has a `.cursor/rules/*.mdc` mirror (rules are always-apply).
+All four live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. `plan-with-baz`, `plan-comments` and `review` are on-demand, so none has a `.cursor/rules/*.mdc` mirror (rules are always-apply).
 
 `review` deliberately introduces no new MCP tool, hook, or manifest entry — it composes the three existing search tools. Cross-repo findings are reported, never edited: the `--fix` loop only touches the repo that is checked out.
 
@@ -74,7 +76,7 @@ On Claude Code the agent never re-types the plan: `plan-complete.js` parks the a
 
 Codex and Cursor have no `updatedInput`, so they keep receiving the plan inline in the hook instruction and pass it themselves. `plan-attach.js` only ever adds what is missing, so their calls pass through untouched. The parked file is Claude-only and is deleted by `session-end.js`.
 
-The call shape is stated in three places that must agree, since each is the only one some path sees: the hook instruction in `plan-complete.js`, Step 5 of `skills/plan-with-baz/SKILL.md`, and the `update_plan` tool description in the `baz` repo. A skill that still says "pass `content`" silently undoes this — the upload keeps working, only the saving disappears.
+The call shape is stated in three places that must agree, since each is the only one some path sees: the hook instruction in `plan-complete.js`, Step 5 of `skills/plan-with-baz/SKILL.md`, and the `update_plan` tool description in the `baz` repo. A skill that still says "pass `content`" silently undoes this — the upload keeps working, only the saving disappears. The one deliberate exception is `plan-comments` Step B, which passes `sessionId` and `content` itself because it may be updating a plan the current session did not create; the hook would fill in this session's id and publish to the wrong plan.
 
 ### Upload requires user consent
 
