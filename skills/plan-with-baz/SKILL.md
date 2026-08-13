@@ -71,18 +71,17 @@ each row instead of by diffing two blocks:
 | --- | --- | --- |
 | <what happens at this point> | <current behaviour> | <what differs, or "unchanged"> |
 
-Mark each changed cell **(new)** or **(changed)**. Rows that are identical on both
-sides say "unchanged": they are what shows how much is being reused. Keep cells
-to one line; a step needing more than that is really two steps.
+Mark every cell **(new)**, **(changed)** or **(unchanged)**, using those three
+words everywhere in the plan. The unchanged ones are what show how much is being
+reused. Keep cells to one line; a step needing more than that is really two steps.
 
 No ASCII diagrams. Plans are read as rendered Markdown, where indentation-aligned
 art becomes a striped, unreadable block.
 
 Then one ```mermaid``` `sequenceDiagram` tracing the same journey at runtime:
 who calls whom, in order, ending where the result lands. Mark every participant
-and message `(new)` or `(unchanged)`; the unchanged ones are what show how much
-is reused. Keep it under six participants and ten messages. Past that it stops
-being readable, and the excess belongs in Steps.
+and message with the same three words. Keep it under six participants and ten
+messages. Past that it stops being readable, and the excess belongs in Steps.
 
 Use `erDiagram` instead when the change is mostly tables and columns, or
 `flowchart TD` when there is no runtime sequence to trace. One diagram; a second
