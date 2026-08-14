@@ -12,7 +12,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "mcp__baz__update_plan",
+        "matcher": "mcp__baz__update_plan|mcp__baz__link_plan_to_pr",
         "hooks": [
           {
             "type": "command",
