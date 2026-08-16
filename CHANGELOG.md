@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/baz-scm/baz-plugin/compare/v0.9.0...v0.10.0) (2026-08-16)
+
+
+### Features
+
+* **plan:** CR-4885 restructure the plan for a human reader ([#29](https://github.com/baz-scm/baz-plugin/issues/29)) ([d9d33af](https://github.com/baz-scm/baz-plugin/commit/d9d33af0ea4f7227ac56be53793bfe000e7fa4ef))
+
 ## [0.9.0](https://github.com/baz-scm/baz-plugin/compare/v0.8.0...v0.9.0) (2026-08-13)
 
 
