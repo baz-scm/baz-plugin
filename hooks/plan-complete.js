@@ -390,7 +390,7 @@ const supersedes = attachesLocally
 const instruction = [
   `ASK THE USER — DO NOT UPLOAD YET: You just finished planning. Baz can` +
     ` persist this plan and close the planner session, which publishes it to` +
-    ` Baz, where your teammates can open and comment on it the way they would a`
+    ` Baz, where your teammates can open and comment on it the way they would a` +
     ` pull request. This is` +
     ` NOT automatic and this instruction is NOT the user's permission.` +
     ` In your next message, ask the user plainly whether to upload the plan to` +
