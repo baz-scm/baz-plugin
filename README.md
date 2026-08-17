@@ -68,15 +68,9 @@ It explores the relevant repos with the Baz tools — including repos you haven'
 | Cursor | `/plan-with-baz <description>` |
 | Codex | invoke the `plan-with-baz` skill |
 
-### What happens once the plan is written
+### Sharing a plan to Baz
 
-The agent shows you the plan and asks which of three things to do next:
-
-- **Implement** — start executing the plan right away.
-- **Upload to Baz** — publish it, get a link, collaborate on it (then it asks again what to do next).
-- **Change something** — type what you want different; the agent revises the plan and re-asks.
-
-Nothing happens until you pick. **The plan is never uploaded unless you choose "Upload to Baz"** — pick it and you get a link on your organization's Baz timeline, where teammates can open, comment on, and review it.
+Once a plan is written, the agent asks whether to upload it to Baz. **The plan is never uploaded unless you say yes** — say yes and you get a link to it in Baz, where teammates can open, comment on, and review it, the way they would a pull request in GitHub.
 
 ## Plan comments command
 

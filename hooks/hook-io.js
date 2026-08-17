@@ -41,7 +41,10 @@ function readHookInput() {
   } catch {
     return null;
   }
-  return parsed && typeof parsed === 'object' ? parsed : null;
+  // `typeof [] === 'object'`, so arrays need their own check to reach the
+  // documented no-op path rather than being handed to a hook as a payload.
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  return parsed;
 }
 
 module.exports = { failSoft, readHookInput };
