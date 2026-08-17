@@ -1,11 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { failSoft, readHookInput } = require('./hook-io');
+
+failSoft();
 
 // PostToolUse hook that, once planning is done, prompts the agent to ASK the
 // user whether to upload the plan to baz. Uploading is deliberately not
-// automatic: `mcp__baz__update_plan` publishes the plan to the org's timeline
-// where teammates can read it, so the user gets to decide. This hook never
+// automatic: `mcp__baz__update_plan` publishes the plan to Baz, where the org
+// can read and comment on it, so the user gets to decide. This hook never
 // authorizes the call — it supplies the authoritative arguments and instructs
 // the agent to obtain consent first. Three trigger paths converge here:
 //
@@ -20,8 +23,8 @@ const { execSync } = require('child_process');
 //      (identical content → same version).
 //   3. File-write tools (Write/Edit/apply_patch/edit_file/write_file) — agent
 //      planned inline and wrote its final plan to /tmp/.baz-plan-<sessionId>.md
-//      per SKILL.md / .cursor/rules / AGENTS.md. Used by Codex / Cursor and by
-//      Claude Code when running the skill *without* plan mode.
+//      per SKILL.md / .cursor/rules / AGENTS.md. The primary path — every
+//      platform, including Claude Code.
 //
 // For path 2 we inspect the tool's *destination path* fields (not the full
 // tool_input JSON) so a Write/Edit whose *content* happens to mention the
@@ -306,7 +309,7 @@ function cwdFromHookInput(hookInput) {
 
 // --- Main flow --------------------------------------------------------------
 
-const d = tryParseJson(fs.readFileSync('/dev/stdin', 'utf8'));
+const d = readHookInput();
 if (!d) process.exit(0);
 
 const sessionId = d.session_id || d.conversation_id || '';
@@ -320,7 +323,7 @@ if ((d.tool_name || '') !== 'ExitPlanMode') {
 
 // update_plan requires content — if we couldn't extract the plan, there's
 // nothing to persist and no viable tool call to nudge. Exit quietly rather
-// than firing a broken instruction; the session stays open in baz's timeline
+// than firing a broken instruction; the planner session stays open in baz
 // until a later hook supplies a plan.
 const planContent = extractPlan(d, sessionId);
 if (planContent === null) process.exit(0);
@@ -382,18 +385,19 @@ const callShape = attachesLocally
 const supersedes = attachesLocally
   ? `the attached content supersedes any earlier draft`
   : `using the \`content\` in THIS instruction: it supersedes any earlier draft,` +
-    ` so this is how the version the user ultimately approved reaches the timeline`;
+    ` so this is how the version the user ultimately approved is what lands in Baz`;
 
 const instruction = [
   `ASK THE USER — DO NOT UPLOAD YET: You just finished planning. Baz can` +
     ` persist this plan and close the planner session, which publishes it to` +
-    ` your organization's Baz timeline where teammates can read it. This is` +
+    ` Baz, where your teammates can open and comment on it the way they would a` +
+    ` pull request. This is` +
     ` NOT automatic and this instruction is NOT the user's permission.` +
     ` In your next message, ask the user plainly whether to upload the plan to` +
     ` Baz, and wait for their answer.`,
   ...callShape,
   `If they say no, do not call the tool and do not raise it again this session;` +
-    ` the planner session simply stays open in baz's timeline, which is the` +
+    ` the plan is simply never published and the planner session stays open, which is the` +
     ` accepted cost of not uploading.`,
   `If you already asked during this session, do NOT ask again — reuse the answer` +
     ` you were given. If that answer was yes, call the tool again now, ${supersedes}.` +

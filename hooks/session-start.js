@@ -1,8 +1,10 @@
-const fs = require('fs');
 const { execSync } = require('child_process');
+const { failSoft, readHookInput } = require('./hook-io');
 
-const input = fs.readFileSync('/dev/stdin', 'utf8');
-const d = JSON.parse(input);
+failSoft();
+
+const d = readHookInput();
+if (!d) process.exit(0);
 
 const SAFE_VENDOR = /^[A-Za-z0-9._-]{1,64}$/;
 const vendorArg = process.argv[2] || '';
@@ -63,19 +65,24 @@ if (agentVendor === 'codex' || agentVendor === 'cursor') {
     ` COMPLETION CONTRACT: when you finish planning, write your final plan to` +
     ` \`/tmp/.baz-plan-${sessionId}.md\`. Writing that file is local and needs` +
     ` no permission, but it is what lets the baz plugin offer to persist the` +
-    ` plan. Uploading the plan to Baz publishes it to your organization's Baz` +
-    ` timeline, so it is never automatic — ask the user first and only call` +
+    ` plan. Uploading publishes the plan to Baz, where your teammates can open and` +
+    ` comment on it, so it is never automatic — ask the user first and only call` +
     ` \`mcp__baz__update_plan\` if they say yes. If they decline, skip the call;` +
-    ` the planner session stays open in baz's timeline, which is the accepted` +
+    ` the plan is never published and the planner session stays open, which is the accepted` +
     ` cost.`;
 }
 if (agentVendor === 'cursor') {
   instruction +=
     ` (Cursor-specific: no automated follow-up prompt will arrive after the file` +
-    ` write, so you must raise the upload question yourself. If the user agrees,` +
+    ` write, so this is the only copy of the contract you get — everything above` +
+    ` is on you. Raise the upload question yourself. If the user agrees,` +
     ` call \`mcp__baz__update_plan\` with \`sessionId: "${sessionId}"\` and` +
     ` \`content\` set to the exact plan text you just wrote (verbatim, no` +
-    ` summary), then show the user the plan link from the tool result.)`;
+    ` summary), then show the user the plan link from the tool result and tell` +
+    ` them they can run the plan-comments command any time to pull the plan's` +
+    ` comments back into this session. Ask once per session: if you already have` +
+    ` the user's answer, reuse it rather than asking again — on a yes, a revised` +
+    ` plan is re-uploaded with the new text, and on a no the question is closed.)`;
 }
 
 process.stdout.write(JSON.stringify({

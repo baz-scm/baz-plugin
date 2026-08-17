@@ -1,5 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { failSoft, readHookInput } = require('./hook-io');
+
+failSoft();
 
 // PreToolUse on mcp__baz__update_plan. The agent calls it with no arguments;
 // this fills in the session id from the hook's stdin payload and the plan text
@@ -29,7 +32,7 @@ function passThrough() {
   process.exit(0);
 }
 
-const d = tryParseJson(fs.readFileSync('/dev/stdin', 'utf8'));
+const d = readHookInput();
 if (!d) passThrough();
 
 const sessionId = d.session_id || d.conversation_id || '';

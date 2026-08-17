@@ -1,5 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { failSoft, readHookInput } = require('./hook-io');
+
+failSoft();
 
 // Cursor-only: Cursor's `stop` hook fires once per agent turn and carries the
 // token counts for that turn on its payload, plus a stable `model_id` (with
@@ -11,9 +14,8 @@ const path = require('path');
 // `plan-complete.js` reads it directly on those platforms and this hook is not
 // wired up there.
 
-const input = fs.readFileSync('/dev/stdin', 'utf8');
-let d;
-try { d = JSON.parse(input); } catch { process.exit(0); }
+const d = readHookInput();
+if (!d) process.exit(0);
 
 // Cursor uses `conversation_id` on some hooks and `session_id` on others.
 const sessionId = d.session_id || d.conversation_id || '';

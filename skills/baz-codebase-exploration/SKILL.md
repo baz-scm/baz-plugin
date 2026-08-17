@@ -113,6 +113,6 @@ Based on what you found, propose:
 
 ## Search-call arguments — required
 
-The baz plugin's SessionStart hook injects your `sessionId`, the cwd repo (`sessionRepository`), and the client name (`agentVendor`, e.g. `claude-code`, `codex`, `cursor`) into your context. **You MUST pass all three as arguments on every call to `repo_search`, `remote_grep`, and `remote_file_search`.** Without them, baz cannot correlate your tool calls to a session and the calls are dropped from baz's timeline. This is non-negotiable — treat the values as required, not optional, regardless of what the tool schema marks them as.
+The baz plugin's SessionStart hook injects your `sessionId`, the cwd repo (`sessionRepository`), and the client name (`agentVendor`, e.g. `claude-code`, `codex`, `cursor`) into your context. **You MUST pass all three as arguments on every call to `repo_search`, `remote_grep`, and `remote_file_search`.** Without them, baz cannot correlate your tool calls to a session and the calls are not recorded against your session in Baz. This is non-negotiable — treat the values as required, not optional, regardless of what the tool schema marks them as.
 
 This skill covers search only. What to do with a finished plan — writing it, and whether to upload it to Baz — belongs to the planning flow, not here: see the `plan-with-baz` skill, or follow the instruction the baz plugin's hooks inject when planning ends.

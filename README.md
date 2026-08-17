@@ -60,17 +60,17 @@ The plugin also ships a manually-invoked planning command, **`/baz:plan-with-baz
 /baz:plan-with-baz add rate limiting to the public API
 ```
 
-It enters plan mode (where the harness supports it), explores the relevant repos with the Baz tools — including repos you haven't checked out — and writes a structured implementation plan you approve before any code is written.
+It explores the relevant repos with the Baz tools — including repos you haven't checked out — and writes a structured implementation plan you sign off on before any code is written. The agent stays read-only until you approve, so nothing in your working tree changes while it plans.
 
-| Platform | How to invoke | Plan mode |
-|---|---|---|
-| Claude Code | `/baz:plan-with-baz <description>` | enters plan mode automatically (one-click confirm) |
-| Cursor | `/plan-with-baz <description>` | prompts you to switch to Plan mode |
-| Codex | invoke the `plan-with-baz` skill | runs read-only, no writes until you approve |
+| Platform | How to invoke |
+|---|---|
+| Claude Code | `/baz:plan-with-baz <description>` |
+| Cursor | `/plan-with-baz <description>` |
+| Codex | invoke the `plan-with-baz` skill |
 
 ### Sharing a plan to Baz
 
-Once a plan is written, the agent asks whether to upload it to Baz. **The plan is never uploaded unless you say yes** — say yes and you get a link to it on your organization's Baz timeline, where teammates can open, comment on, and review it.
+Once a plan is written, the agent asks whether to upload it to Baz. **The plan is never uploaded unless you say yes** — say yes and you get a link to it in Baz, where teammates can open, comment on, and review it, the way they would a pull request in GitHub.
 
 ## Plan comments command
 
