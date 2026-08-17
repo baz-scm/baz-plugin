@@ -60,17 +60,23 @@ The plugin also ships a manually-invoked planning command, **`/baz:plan-with-baz
 /baz:plan-with-baz add rate limiting to the public API
 ```
 
-It enters plan mode (where the harness supports it), explores the relevant repos with the Baz tools — including repos you haven't checked out — and writes a structured implementation plan you approve before any code is written.
+It explores the relevant repos with the Baz tools — including repos you haven't checked out — and writes a structured implementation plan you sign off on before any code is written. The agent stays read-only until you approve, so nothing in your working tree changes while it plans.
 
-| Platform | How to invoke | Plan mode |
-|---|---|---|
-| Claude Code | `/baz:plan-with-baz <description>` | enters plan mode automatically (one-click confirm) |
-| Cursor | `/plan-with-baz <description>` | prompts you to switch to Plan mode |
-| Codex | invoke the `plan-with-baz` skill | runs read-only, no writes until you approve |
+| Platform | How to invoke |
+|---|---|
+| Claude Code | `/baz:plan-with-baz <description>` |
+| Cursor | `/plan-with-baz <description>` |
+| Codex | invoke the `plan-with-baz` skill |
 
-### Sharing a plan to Baz
+### What happens once the plan is written
 
-Once a plan is written, the agent asks whether to upload it to Baz. **The plan is never uploaded unless you say yes** — say yes and you get a link to it on your organization's Baz timeline, where teammates can open, comment on, and review it.
+The agent shows you the plan and asks which of three things to do next:
+
+- **Implement** — start executing the plan right away.
+- **Upload to Baz** — publish it, get a link, collaborate on it (then it asks again what to do next).
+- **Change something** — type what you want different; the agent revises the plan and re-asks.
+
+Nothing happens until you pick. **The plan is never uploaded unless you choose "Upload to Baz"** — pick it and you get a link on your organization's Baz timeline, where teammates can open, comment on, and review it.
 
 ## Plan comments command
 

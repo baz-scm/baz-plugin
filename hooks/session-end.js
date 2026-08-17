@@ -1,7 +1,10 @@
 const fs = require('fs');
+const { failSoft, readHookInput } = require('./hook-io');
 
-const input = fs.readFileSync('/dev/stdin', 'utf8');
-const d = JSON.parse(input);
+failSoft();
+
+const d = readHookInput();
+if (!d) process.exit(0);
 
 const sessionId = d.session_id || d.conversation_id || '';
 if (!sessionId) process.exit(0);
@@ -10,10 +13,17 @@ try { fs.unlinkSync(`/tmp/.baz-plan-pending-${sessionId}.json`); } catch {}
 
 const logPath = `/tmp/.baz-counts-${sessionId}.json`;
 
-if (!fs.existsSync(logPath)) process.exit(0);
+// Read-then-delete, both guarded: on Codex this hook runs on every `Stop`, so
+// two turns ending close together can race for the same file.
+let raw;
+try {
+  raw = fs.readFileSync(logPath, 'utf8');
+} catch {
+  process.exit(0);
+}
+try { fs.unlinkSync(logPath); } catch {}
 
-const lines = fs.readFileSync(logPath, 'utf8').split('\n').filter(Boolean);
-fs.unlinkSync(logPath);
+const lines = raw.split('\n').filter(Boolean);
 
 const counts = {};
 for (const tool of lines) counts[tool] = (counts[tool] || 0) + 1;

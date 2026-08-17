@@ -1,13 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { failSoft, readHookInput } = require('./hook-io');
+
+failSoft();
 
 // PostToolUse hook that, once planning is done, prompts the agent to ASK the
-// user whether to upload the plan to baz. Uploading is deliberately not
-// automatic: `mcp__baz__update_plan` publishes the plan to the org's timeline
-// where teammates can read it, so the user gets to decide. This hook never
-// authorizes the call — it supplies the authoritative arguments and instructs
-// the agent to obtain consent first. Three trigger paths converge here:
+// user what to do next — implement, upload to baz, or change the plan. Neither
+// implementing nor uploading is automatic: `mcp__baz__update_plan` publishes the
+// plan to the org's timeline where teammates can read it, so the user gets to
+// decide. This hook never authorizes the call — it supplies the authoritative
+// arguments and instructs the agent to obtain consent first. Three trigger paths
+// converge here:
 //
 //   1. CC's ExitPlanMode — agent used plan mode and the user approved.
 //   2. CC's Write to the plan-mode plan file at ~/.claude/plans/<name>.md —
@@ -20,8 +24,8 @@ const { execSync } = require('child_process');
 //      (identical content → same version).
 //   3. File-write tools (Write/Edit/apply_patch/edit_file/write_file) — agent
 //      planned inline and wrote its final plan to /tmp/.baz-plan-<sessionId>.md
-//      per SKILL.md / .cursor/rules / AGENTS.md. Used by Codex / Cursor and by
-//      Claude Code when running the skill *without* plan mode.
+//      per SKILL.md / .cursor/rules / AGENTS.md. The primary path — every
+//      platform, including Claude Code.
 //
 // For path 2 we inspect the tool's *destination path* fields (not the full
 // tool_input JSON) so a Write/Edit whose *content* happens to mention the
@@ -306,7 +310,7 @@ function cwdFromHookInput(hookInput) {
 
 // --- Main flow --------------------------------------------------------------
 
-const d = tryParseJson(fs.readFileSync('/dev/stdin', 'utf8'));
+const d = readHookInput();
 if (!d) process.exit(0);
 
 const sessionId = d.session_id || d.conversation_id || '';
@@ -351,15 +355,16 @@ const attachesLocally =
 // around it is the same either way.
 const callShape = attachesLocally
   ? [
-      `If — and only if — they say yes, call \`mcp__baz__update_plan\` exactly` +
-        ` once with NO arguments at all. The session id, plan text, token` +
+      `If — and only if — they pick "Upload to Baz", call` +
+        ` \`mcp__baz__update_plan\` exactly once with NO arguments at all. The session id, plan text, token` +
         ` counts, model id and repo names are attached automatically before the` +
         ` call is sent. Re-typing the plan wastes tokens and risks drift.`,
       `Revisions go in the plan file: edit it there and this hook re-runs, so` +
         ` the version that reaches Baz is always the file's current text.`,
     ]
   : [
-      `If — and only if — they say yes, call \`mcp__baz__update_plan\` exactly once` +
+      `If — and only if — they pick "Upload to Baz", call` +
+        ` \`mcp__baz__update_plan\` exactly once` +
         ` with \`sessionId: "${sessionId}"\` and` +
         ` \`content: ${JSON.stringify(planContent)}\` — this is the authoritative` +
         ` plan text (read from the tool input or the plan file on disk); pass the` +
@@ -385,19 +390,28 @@ const supersedes = attachesLocally
     ` so this is how the version the user ultimately approved reaches the timeline`;
 
 const instruction = [
-  `ASK THE USER — DO NOT UPLOAD YET: You just finished planning. Baz can` +
-    ` persist this plan and close the planner session, which publishes it to` +
-    ` your organization's Baz timeline where teammates can read it. This is` +
-    ` NOT automatic and this instruction is NOT the user's permission.` +
-    ` In your next message, ask the user plainly whether to upload the plan to` +
-    ` Baz, and wait for their answer.`,
+  `ASK THE USER — DO NOT UPLOAD AND DO NOT START IMPLEMENTING YET: You just` +
+    ` finished planning. In your next message, present the plan and ask the user` +
+    ` which of exactly three things to do next, in this order: (1) "Implement" —` +
+    ` start executing the plan now; (2) "Upload to Baz" — persist the plan and` +
+    ` close the planner session, which publishes it to your organization's Baz` +
+    ` timeline where teammates can read and comment on it; (3) "Change` +
+    ` something" — a free-text option the user fills in with what they want` +
+    ` different. On Claude Code use AskUserQuestion (it supplies the free-text` +
+    ` option itself); otherwise list the three in your message. Then wait for` +
+    ` their answer — none of the three is a default, and this instruction is NOT` +
+    ` the user's permission to upload.`,
+  `If they pick "Implement", start executing the plan and do not upload.` +
+    ` If they pick "Change something", revise the plan, rewrite the plan file,` +
+    ` present the new version and offer the same three choices again.`,
   ...callShape,
-  `If they say no, do not call the tool and do not raise it again this session;` +
-    ` the planner session simply stays open in baz's timeline, which is the` +
-    ` accepted cost of not uploading.`,
-  `If you already asked during this session, do NOT ask again — reuse the answer` +
-    ` you were given. If that answer was yes, call the tool again now, ${supersedes}.` +
-    ` Identical content is deduped server-side, so a redundant call costs nothing.`,
+  `If they picked anything other than "Upload to Baz", do not call the tool and` +
+    ` do not raise uploading again this session; the planner session simply stays` +
+    ` open in baz's timeline, which is the accepted cost of not uploading.`,
+  `If you already asked during this session, do NOT re-ask the upload question —` +
+    ` reuse the answer you were given. If that answer was "Upload to Baz", call` +
+    ` the tool again now, ${supersedes}. Identical content is deduped` +
+    ` server-side, so a redundant call costs nothing.`,
   `The tool result contains a shareable plan link — include that link in your` +
     ` reply so the user can open the uploaded plan, and tell them they can run` +
     ` \`/baz:plan-comments\` any time to pull the plan's comments back into this` +

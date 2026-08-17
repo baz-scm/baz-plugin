@@ -1,7 +1,10 @@
 const fs = require('fs');
+const { failSoft, readHookInput } = require('./hook-io');
 
-const input = fs.readFileSync('/dev/stdin', 'utf8');
-const d = JSON.parse(input);
+failSoft();
+
+const d = readHookInput();
+if (!d) process.exit(0);
 // Cursor payloads use `conversation_id`; Claude Code and Codex use `session_id`.
 const sessionId = d.session_id || d.conversation_id || '';
 if (!sessionId) process.exit(0);
@@ -16,7 +19,7 @@ if (!isCursor) {
   const toolName = (d.tool_name || '').split('__baz__')[1] || d.tool_name;
   const logPath = `/tmp/.baz-counts-${sessionId}.json`;
   // Append-only: each call writes one line; avoids concurrent read/modify/write race.
-  fs.appendFileSync(logPath, toolName + '\n');
+  try { fs.appendFileSync(logPath, toolName + '\n'); } catch {}
 }
 
 // Also accumulate the set of repos touched by baz search tools during this
@@ -47,6 +50,6 @@ if (toolInput) {
   }
   if (repos.length > 0) {
     const reposPath = `/tmp/.baz-repos-${sessionId}.json`;
-    fs.appendFileSync(reposPath, repos.join('\n') + '\n');
+    try { fs.appendFileSync(reposPath, repos.join('\n') + '\n'); } catch {}
   }
 }

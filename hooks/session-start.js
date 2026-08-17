@@ -1,8 +1,10 @@
-const fs = require('fs');
 const { execSync } = require('child_process');
+const { failSoft, readHookInput } = require('./hook-io');
 
-const input = fs.readFileSync('/dev/stdin', 'utf8');
-const d = JSON.parse(input);
+failSoft();
+
+const d = readHookInput();
+if (!d) process.exit(0);
 
 const SAFE_VENDOR = /^[A-Za-z0-9._-]{1,64}$/;
 const vendorArg = process.argv[2] || '';
@@ -63,16 +65,20 @@ if (agentVendor === 'codex' || agentVendor === 'cursor') {
     ` COMPLETION CONTRACT: when you finish planning, write your final plan to` +
     ` \`/tmp/.baz-plan-${sessionId}.md\`. Writing that file is local and needs` +
     ` no permission, but it is what lets the baz plugin offer to persist the` +
-    ` plan. Uploading the plan to Baz publishes it to your organization's Baz` +
-    ` timeline, so it is never automatic — ask the user first and only call` +
-    ` \`mcp__baz__update_plan\` if they say yes. If they decline, skip the call;` +
-    ` the planner session stays open in baz's timeline, which is the accepted` +
-    ` cost.`;
+    ` plan. Then ask the user which of three things to do next: (1) "Implement" —` +
+    ` execute the plan now; (2) "Upload to Baz" — publish the plan to your` +
+    ` organization's Baz timeline so teammates can read and comment on it;` +
+    ` (3) "Change something" — free text for what they want different. Wait for` +
+    ` their answer; none of the three is a default. Uploading is never automatic` +
+    ` — only call \`mcp__baz__update_plan\` if they pick "Upload to Baz". If they` +
+    ` pick anything else, skip the call; the planner session stays open in baz's` +
+    ` timeline, which is the accepted cost.`;
 }
 if (agentVendor === 'cursor') {
   instruction +=
     ` (Cursor-specific: no automated follow-up prompt will arrive after the file` +
-    ` write, so you must raise the upload question yourself. If the user agrees,` +
+    ` write, so you must present those three choices yourself. If the user picks` +
+    ` "Upload to Baz",` +
     ` call \`mcp__baz__update_plan\` with \`sessionId: "${sessionId}"\` and` +
     ` \`content\` set to the exact plan text you just wrote (verbatim, no` +
     ` summary), then show the user the plan link from the tool result.)`;
