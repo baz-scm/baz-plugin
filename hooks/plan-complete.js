@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { failSoft, readHookInput } = require('./hook-io');
+const { failSoft, readHookInput, sessionIdOf, scratchPath } = require('./hook-io');
 
 failSoft();
 
@@ -22,7 +22,8 @@ failSoft();
 //      duplicate update_plan call is deduped server-side by content hash
 //      (identical content → same version).
 //   3. File-write tools (Write/Edit/apply_patch/edit_file/write_file) — agent
-//      planned inline and wrote its final plan to /tmp/.baz-plan-<sessionId>.md
+//      planned inline and wrote its final plan to .baz-plan-<sessionId>.md in
+//      the plugin's scratch directory (see hook-io.js)
 //      per SKILL.md / .cursor/rules / AGENTS.md. The primary path — every
 //      platform, including Claude Code.
 //
@@ -32,7 +33,8 @@ failSoft();
 // different field: CC Write/Edit uses `file_path`, Cursor edit_file/write_file
 // uses `path` or `target_file`, Codex apply_patch encodes the path in a
 // `command` envelope (e.g. "*** Add File: <path>"). We match by basename
-// because macOS resolves /tmp → /private/tmp before the path reaches the hook.
+// because the host may resolve or rewrite the directory before the path
+// reaches the hook (macOS turns /tmp into /private/tmp, for one).
 //
 // argv[2] is the vendor name ('claude-code' | 'codex' | 'cursor'); the
 // per-platform hook manifest passes it so we can dispatch token extraction.
@@ -59,7 +61,7 @@ function safeUnlink(filePath) {
 
 // Keep in sync with plan-attach.js.
 function pendingPayloadPath(sid) {
-  return path.join('/tmp', `.baz-plan-pending-${sid}.json`);
+  return scratchPath('plan-pending', sid, 'json');
 }
 
 // False if it cannot be parked, so the caller falls back to inlining the plan.
@@ -201,12 +203,12 @@ function extractCodexUsage(transcriptPath) {
   return { tokens, modelId };
 }
 
-// Cursor: per-turn tally accumulated by stop-token-tally.js in /tmp. Both
+// Cursor: per-turn tally accumulated by stop-token-tally.js. Both
 // tokens and model id come from Cursor's stop hook payload (model_id preferred
 // over the display-name `model`); the tally file is last-write-wins for model
 // id across turns.
 function extractCursorUsage(sid) {
-  const tallyPath = path.join('/tmp', `.baz-tokens-${sid}.json`);
+  const tallyPath = scratchPath('tokens', sid, 'json');
   const raw = safeReadFile(tallyPath);
   if (raw === null) return null;
   safeUnlink(tallyPath);
@@ -253,7 +255,7 @@ function extractPlan(hookInput, sid) {
     const content = safeReadFile(ccPlanPath);
     return normalizePlan(content);
   }
-  const planPath = path.join('/tmp', `.baz-plan-${sid}.md`);
+  const planPath = scratchPath('plan', sid, 'md');
   const content = safeReadFile(planPath);
   if (content === null) return null;
   safeUnlink(planPath);
@@ -262,7 +264,7 @@ function extractPlan(hookInput, sid) {
 
 // --- Repos related to the plan ----------------------------------------------
 // post-tool-use.js accumulates the `repository` / `sessionRepository` argument
-// from every baz MCP tool call into /tmp/.baz-repos-<sessionId>.json. We also
+// from every baz MCP tool call into .baz-repos-<sessionId>.json. We also
 // derive the session's own repo from cwd so the plan is always attributed to
 // where the user is actually working.
 
@@ -287,7 +289,7 @@ function collectRepos(sid, cwd) {
   const cwdRepo = repoFromCwd(cwd);
   if (cwdRepo) seen.add(cwdRepo);
 
-  const reposPath = path.join('/tmp', `.baz-repos-${sid}.json`);
+  const reposPath = scratchPath('repos', sid, 'json');
   const raw = safeReadFile(reposPath);
   if (raw !== null) {
     safeUnlink(reposPath);
@@ -312,7 +314,7 @@ function cwdFromHookInput(hookInput) {
 const d = readHookInput();
 if (!d) process.exit(0);
 
-const sessionId = d.session_id || d.conversation_id || '';
+const sessionId = sessionIdOf(d);
 if (!sessionId) process.exit(0);
 
 if ((d.tool_name || '') !== 'ExitPlanMode') {
@@ -385,7 +387,7 @@ const callShape = attachesLocally
 const supersedes = attachesLocally
   ? `the attached content supersedes any earlier draft`
   : `using the \`content\` in THIS instruction: it supersedes any earlier draft,` +
-    ` so this is how the version the user ultimately approved is what lands in Baz`;
+    ` so the version the user ultimately approved is what lands in Baz`;
 
 const instruction = [
   `ASK THE USER — DO NOT UPLOAD YET: You just finished planning. Baz can` +

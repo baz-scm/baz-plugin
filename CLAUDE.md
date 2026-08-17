@@ -60,15 +60,21 @@ The reported crash was `JSON.parse('')`: Codex fires `Stop` with no JSON body on
 
 ## Scratch-file lifecycle
 
-Everything the plugin writes lands in `/tmp` under a `.baz-*-<sessionId>.*` name. The plan file is the sensitive one: it holds the user's proprietary design in a world-readable directory, so it gets deleted on the normal path (`extractPlan()` unlinks it right after reading) **and** at session end, since the normal path only covers a hook that fires and gets that far.
+Everything the plugin writes goes in **a directory it owns, mode 0700** — `<os.tmpdir()>/.baz-<uid>`, resolved by `scratchDir()` in `hook-io.js` — under a `.baz-*-<sessionId>.*` name. Never shared `/tmp`. The plan file is why: it holds the user's proprietary design, the *agent's* file-write tool creates it (so it lands with the agent's umask, `0644` under the usual `022`), and its name is derived from the session id rather than being secret. We can't set the mode on a file we don't write, so the parent directory is what denies other local accounts. `os.tmpdir()` is already per-user on macOS; the uid in the name keeps two users on one Linux box apart. If the directory can't be created, `scratchDir()` falls back to `os.tmpdir()` — degraded privacy, still working.
 
-`session-end.js` therefore does three things: unlinks this session's `plan` / `plan-pending` / `repos` / `tokens` files, consumes the counter file, and reaps any `.baz-*` scratch file older than 24h. The reaper covers sessions whose end was never observed — a crashed host, a plugin removed mid-session, or Cursor, which has no session-end event at all (a Cursor-only machine never runs the reaper; that follows the existing "Cursor is best-effort" posture).
+Because the path is computed, **the agent can't guess it**: `session-start.js` emits it on every platform ("If you write a plan file for this session, write it to …"), and `plan-with-baz` defers to that injected path. `plan-complete.js` matches the plan write by *basename*, so it keeps triggering wherever the directory resolves to.
+
+The plan is deleted on the normal path (`extractPlan()` unlinks it right after reading) **and** at session end, since the normal path only covers a hook that fires and gets that far.
+
+`session-end.js` does three things: unlinks this session's `plan` / `plan-pending` / `repos` / `tokens` files **when the event is terminal**, consumes the counter file, and reaps any `.baz-*` scratch file older than 24h (in the scratch directory and in `/tmp`, so leftovers from versions before the private directory don't outlive the upgrade).
+
+**"When terminal" is load-bearing.** Codex has no session-end event and fires `Stop` after every turn, so on Codex this script runs repeatedly inside one live session — deleting the plan there would destroy it before `plan-complete.js` reads it, and deleting `repos` would drop the attribution `post-tool-use.js` is still appending to. Each manifest therefore passes its vendor as `argv[2]`, and the per-session unlink is skipped for `codex`, whose leftovers fall to the reaper instead. Cursor wires no session-end at all, so a Cursor-only machine never runs the reaper; that follows the existing "Cursor is best-effort" posture.
 
 The counter file is **claimed by rename before it is read**. Codex fires `Stop` per turn, so a plain read-then-delete lets two overlapping runs both read the same file and print the summary twice; `rename(2)` is atomic, and the loser gets ENOENT and exits quietly. A run that dies mid-claim leaves a `.<pid>.claim` file, which the reaper also matches.
 
 ## Hook counter mechanics
 
-`post-tool-use.js` writes to `/tmp/.baz-counts-<session_id>.json`. `session-end.js` reads, prints, and deletes it. Scripts are shared across all three platforms — only the hook manifests differ (event names, path variables).
+`post-tool-use.js` appends to `.baz-counts-<session_id>.json` in the scratch directory. `session-end.js` claims that file by rename, then reads, prints, and deletes the claim — see "Scratch-file lifecycle" for why the claim is what makes the summary print once. Scripts are shared across all three platforms — only the hook manifests differ (event names, path variables, and the vendor argument each passes).
 
 | Platform | Session-start event | Tool event | Session-end event | Path variable |
 |---|---|---|---|---|

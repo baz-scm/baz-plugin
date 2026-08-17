@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/session-end.js\""
+            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/session-end.js\" codex"
           }
         ]
       }

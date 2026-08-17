@@ -1,6 +1,5 @@
 const fs = require('fs');
-const path = require('path');
-const { failSoft, readHookInput } = require('./hook-io');
+const { failSoft, readHookInput, sessionIdOf, scratchPath } = require('./hook-io');
 
 failSoft();
 
@@ -23,10 +22,8 @@ function safeReadFile(filePath) {
 
 // Keep in sync with plan-complete.js.
 function pendingPayloadPath(sid) {
-  return path.join('/tmp', `.baz-plan-pending-${sid}.json`);
+  return scratchPath('plan-pending', sid, 'json');
 }
-
-const SAFE_SESSION = /^[A-Za-z0-9-]{1,128}$/;
 
 function passThrough() {
   process.exit(0);
@@ -35,8 +32,8 @@ function passThrough() {
 const d = readHookInput();
 if (!d) passThrough();
 
-const sessionId = d.session_id || d.conversation_id || '';
-if (!sessionId || !SAFE_SESSION.test(sessionId)) passThrough();
+const sessionId = sessionIdOf(d);
+if (!sessionId) passThrough();
 
 const toolInput =
   d.tool_input && typeof d.tool_input === 'object' ? d.tool_input : {};

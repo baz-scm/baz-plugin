@@ -1,5 +1,5 @@
 const { execSync } = require('child_process');
-const { failSoft, readHookInput } = require('./hook-io');
+const { failSoft, readHookInput, sessionIdOf, scratchPath } = require('./hook-io');
 
 failSoft();
 
@@ -10,13 +10,17 @@ const SAFE_VENDOR = /^[A-Za-z0-9._-]{1,64}$/;
 const vendorArg = process.argv[2] || '';
 const agentVendor = SAFE_VENDOR.test(vendorArg) ? vendorArg : '';
 
-const sessionId = d.session_id || d.conversation_id || '';
+const sessionId = sessionIdOf(d);
 const cwd =
   d.cwd ||
   (Array.isArray(d.workspace_roots) && d.workspace_roots.length > 0
     ? d.workspace_roots[0]
     : '');
 if (!sessionId) process.exit(0);
+
+// Where this session's plan file goes. Private to this user (mode 0700), so
+// the plan is not readable by other local accounts the way a /tmp file is.
+const planPath = scratchPath('plan', sessionId, 'md');
 
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 
@@ -47,10 +51,17 @@ if (sessionRepo) {
 if (agentVendor) {
   args += `, \`agentVendor: "${agentVendor}"\``;
 }
+instruction +=
+  ` If you write a plan file for this session, write it to \`${planPath}\` —`
+  + ` a directory this plugin owns, readable only by you. Do not put a plan in`
+  + ` shared /tmp.`;
 instruction += ` When calling baz planning MCP tools (\`mcp__baz__repo_search\`, \`mcp__baz__remote_file_search\`, \`mcp__baz__remote_grep\`), always include ${args} as arguments. This is required for baz to correlate tool calls back to this session and the repo you are working in.`;
 
-// Codex and Cursor have no ExitPlanMode, so writing /tmp/.baz-plan-<sid>.md is
-// the only "planning is over" signal plan-complete.js can match on. The
+// Codex and Cursor have no ExitPlanMode, so writing the scratch plan file is
+// the only "planning is over" signal plan-complete.js can match on. The path is
+// computed (hook-io.js owns it, and it is a private 0700 directory rather than
+// shared /tmp), so the agent cannot know it without being told — which is the
+// other reason this contract has to be emitted here. The
 // plan-with-baz skill says so, but it's manual-invocation only — a user who
 // plans without running the command would never write the file and the plugin
 // would never offer to upload. This is platform plumbing, not planning advice,
@@ -63,7 +74,7 @@ instruction += ` When calling baz planning MCP tools (\`mcp__baz__repo_search\`,
 if (agentVendor === 'codex' || agentVendor === 'cursor') {
   instruction +=
     ` COMPLETION CONTRACT: when you finish planning, write your final plan to` +
-    ` \`/tmp/.baz-plan-${sessionId}.md\`. Writing that file is local and needs` +
+    ` the plan-file path given above. Writing that file is local and needs` +
     ` no permission, but it is what lets the baz plugin offer to persist the` +
     ` plan. Uploading publishes the plan to Baz, where your teammates can open and` +
     ` comment on it, so it is never automatic — ask the user first and only call` +
