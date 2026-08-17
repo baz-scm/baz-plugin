@@ -74,10 +74,15 @@ if (agentVendor === 'codex' || agentVendor === 'cursor') {
 if (agentVendor === 'cursor') {
   instruction +=
     ` (Cursor-specific: no automated follow-up prompt will arrive after the file` +
-    ` write, so you must raise the upload question yourself. If the user agrees,` +
+    ` write, so this is the only copy of the contract you get — everything above` +
+    ` is on you. Raise the upload question yourself. If the user agrees,` +
     ` call \`mcp__baz__update_plan\` with \`sessionId: "${sessionId}"\` and` +
     ` \`content\` set to the exact plan text you just wrote (verbatim, no` +
-    ` summary), then show the user the plan link from the tool result.)`;
+    ` summary), then show the user the plan link from the tool result and tell` +
+    ` them they can run the plan-comments command any time to pull the plan's` +
+    ` comments back into this session. Ask once per session: if you already have` +
+    ` the user's answer, reuse it rather than asking again — on a yes, a revised` +
+    ` plan is re-uploaded with the new text, and on a no the question is closed.)`;
 }
 
 process.stdout.write(JSON.stringify({
