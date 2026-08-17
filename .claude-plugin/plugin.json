@@ -1,6 +1,6 @@
 {
   "name": "baz",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Indexed cross-repo search and AI-assisted planning for your org's codebase: search, grep, and file-find across every repo without cloning, plus a guided planning workflow that lets your team collaborate on plans together in Baz.",
   "author": {
     "name": "Baz",

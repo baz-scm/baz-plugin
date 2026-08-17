@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/baz-scm/baz-plugin/compare/v0.10.0...v0.11.0) (2026-08-17)
+
+
+### Features
+
+* **plan:** plan without harness plan mode, and stop hooks exiting non-zero ([#32](https://github.com/baz-scm/baz-plugin/issues/32)) ([f5e2964](https://github.com/baz-scm/baz-plugin/commit/f5e2964847d13c755a8302b1ec3dbf2a78e85098))
+
 ## [0.10.0](https://github.com/baz-scm/baz-plugin/compare/v0.9.0...v0.10.0) (2026-08-16)
 
 
