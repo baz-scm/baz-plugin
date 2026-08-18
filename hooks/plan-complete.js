@@ -366,10 +366,17 @@ function collectRepos(sid, cwd) {
   //
   // Both locations, for a session whose repos were partly accumulated by the
   // pre-upgrade hooks: the sets are merged.
+  //
+  // SAFE_REPO on every name, not just the cwd one. post-tool-use.js appends
+  // whatever `repository` / `sessionRepository` the agent passed to a baz search
+  // tool, and the agent's arguments can be shaped by untrusted content it read.
+  // From here a name is interpolated into `additionalContext` or the parked
+  // payload, both of which the model reads as instruction text, so an
+  // unvalidated name is a laundering path from file content into the prompt.
   for (const { content } of readAllScratchFiles('repos', sid, 'json')) {
     for (const line of content.split('\n')) {
       const name = line.trim();
-      if (name) seen.add(name);
+      if (name && SAFE_REPO.test(name)) seen.add(name);
     }
   }
   return [...seen];
