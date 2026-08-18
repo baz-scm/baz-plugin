@@ -1,7 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { failSoft, readHookInput, sessionIdOf, scratchPath } = require('./hook-io');
+const {
+  failSoft,
+  readHookInput,
+  sessionIdOf,
+  scratchPath,
+  readScratchFile,
+} = require('./hook-io');
 
 failSoft();
 
@@ -65,9 +71,13 @@ function pendingPayloadPath(sid) {
 }
 
 // False if it cannot be parked, so the caller falls back to inlining the plan.
+// That includes having no private scratch directory at all: we never park a
+// plan in a directory other accounts can read.
 function writePendingPayload(sid, payload) {
+  const target = pendingPayloadPath(sid);
+  if (!target) return false;
   try {
-    fs.writeFileSync(pendingPayloadPath(sid), JSON.stringify(payload), { mode: 0o600 });
+    fs.writeFileSync(target, JSON.stringify(payload), { mode: 0o600 });
     return true;
   } catch { return false; }
 }
@@ -208,11 +218,12 @@ function extractCodexUsage(transcriptPath) {
 // over the display-name `model`); the tally file is last-write-wins for model
 // id across turns.
 function extractCursorUsage(sid) {
-  const tallyPath = scratchPath('tokens', sid, 'json');
-  const raw = safeReadFile(tallyPath);
-  if (raw === null) return null;
-  safeUnlink(tallyPath);
-  const parsed = tryParseJson(raw);
+  // A session that was mid-flight when the plugin was upgraded has its tally in
+  // the old /tmp location, written by the previous stop-token-tally.js.
+  const found = readScratchFile('tokens', sid, 'json');
+  if (!found) return null;
+  safeUnlink(found.path);
+  const parsed = tryParseJson(found.content);
   if (
     !parsed ||
     typeof parsed !== 'object' ||
@@ -255,11 +266,14 @@ function extractPlan(hookInput, sid) {
     const content = safeReadFile(ccPlanPath);
     return normalizePlan(content);
   }
-  const planPath = scratchPath('plan', sid, 'md');
-  const content = safeReadFile(planPath);
-  if (content === null) return null;
-  safeUnlink(planPath);
-  return normalizePlan(content);
+  // The private path first, then the pre-upgrade /tmp one: a session already
+  // running when the plugin was upgraded still has its plan there, and so does
+  // one whose skill predates the private directory. Only the file actually
+  // consumed is unlinked.
+  const found = readScratchFile('plan', sid, 'md');
+  if (!found) return null;
+  safeUnlink(found.path);
+  return normalizePlan(found.content);
 }
 
 // --- Repos related to the plan ----------------------------------------------
@@ -289,11 +303,10 @@ function collectRepos(sid, cwd) {
   const cwdRepo = repoFromCwd(cwd);
   if (cwdRepo) seen.add(cwdRepo);
 
-  const reposPath = scratchPath('repos', sid, 'json');
-  const raw = safeReadFile(reposPath);
-  if (raw !== null) {
-    safeUnlink(reposPath);
-    for (const line of raw.split('\n')) {
+  const found = readScratchFile('repos', sid, 'json');
+  if (found !== null) {
+    safeUnlink(found.path);
+    for (const line of found.content.split('\n')) {
       const name = line.trim();
       if (name) seen.add(name);
     }

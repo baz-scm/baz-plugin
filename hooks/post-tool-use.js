@@ -17,8 +17,11 @@ const isCursor = !d.session_id && d.conversation_id;
 if (!isCursor) {
   const toolName = (d.tool_name || '').split('__baz__')[1] || d.tool_name;
   const logPath = scratchPath('counts', sessionId, 'json');
-  // Append-only: each call writes one line; avoids concurrent read/modify/write race.
-  try { fs.appendFileSync(logPath, toolName + '\n', { mode: 0o600 }); } catch {}
+  // Append-only: each call writes one line; avoids concurrent read/modify/write
+  // race. Null means no private directory was established — write nothing.
+  if (logPath) {
+    try { fs.appendFileSync(logPath, toolName + '\n', { mode: 0o600 }); } catch {}
+  }
 }
 
 // Also accumulate the set of repos touched by baz search tools during this
@@ -49,6 +52,8 @@ if (toolInput) {
   }
   if (repos.length > 0) {
     const reposPath = scratchPath('repos', sessionId, 'json');
-    try { fs.appendFileSync(reposPath, repos.join('\n') + '\n', { mode: 0o600 }); } catch {}
+    if (reposPath) {
+      try { fs.appendFileSync(reposPath, repos.join('\n') + '\n', { mode: 0o600 }); } catch {}
+    }
   }
 }

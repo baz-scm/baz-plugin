@@ -71,38 +71,103 @@ function sessionIdOf(payload) {
 // --- Scratch directory ------------------------------------------------------
 
 // Everything this plugin writes — the plan, the parked payload, the counters —
-// goes in a directory we own, mode 0700, rather than loose in a world-readable
-// /tmp. The plan file is the reason: the *agent's* file-write tool creates it,
-// so it lands with the agent's umask (0644 under the common 022), and the
-// filename is derived from the session id rather than being secret. A private
-// parent directory denies other local users regardless of the file's own mode.
+// goes in a directory we own, mode 0700, never loose in a shared /tmp. The plan
+// file is the reason: the *agent's* file-write tool creates it, so it lands with
+// the agent's umask (0644 under the common 022), and the filename is derived
+// from the session id rather than being secret. We cannot set the mode on a file
+// we do not write, so the parent directory is what denies other local accounts.
 //
-// os.tmpdir() is already per-user on macOS (/var/folders/..., mode 700) and
-// /tmp on Linux; the uid in the directory name keeps two users on one Linux box
-// from colliding. If the directory can't be created we fall back to os.tmpdir()
-// itself — degraded privacy, but the plugin keeps working.
-let cachedDir = null;
+// This **fails closed**. If no directory can be established and verified
+// private, scratchDir() returns null and every caller does nothing, rather than
+// falling back to the shared directory the private one exists to avoid: on a
+// multi-user Linux box another account can pre-create /tmp/.baz-<our uid> (as a
+// directory it owns, or a symlink pointing somewhere it can read) and a
+// fallback would hand it the plan.
+//
+// Candidates are tried in a fixed order so that every hook process in a session
+// independently resolves the same directory: os.tmpdir() first (already
+// per-user on macOS; the uid in the name separates users on Linux), then a
+// directory under $HOME for hosts where the temp directory is unusable.
+function candidateDirs() {
+  const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
+  const dirs = [];
+  try { dirs.push(path.join(os.tmpdir(), `.baz-${uid}`)); } catch {}
+  const home = (typeof os.homedir === 'function' && os.homedir()) || process.env.HOME || '';
+  if (home) dirs.push(path.join(home, '.baz', 'scratch'));
+  return dirs;
+}
+
+// True only for a real directory, not a symlink, owned by us, with no group or
+// other permission bits. lstat rather than stat: stat would follow a symlink
+// planted by another account and report the target's properties.
+function isPrivateDir(dir) {
+  let st;
+  try { st = fs.lstatSync(dir); } catch { return false; }
+  if (!st.isDirectory()) return false;
+  if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return false;
+  if ((st.mode & 0o077) !== 0) {
+    // Ours but too permissive (an older version of this plugin, or a umask).
+    try { fs.chmodSync(dir, 0o700); } catch { return false; }
+    try { st = fs.lstatSync(dir); } catch { return false; }
+    if ((st.mode & 0o077) !== 0) return false;
+  }
+  return true;
+}
+
+// undefined = not resolved yet, null = resolved to "unavailable".
+let cachedDir;
 
 function scratchDir() {
-  if (cachedDir) return cachedDir;
-  const base = os.tmpdir();
-  const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
-  const dir = path.join(base, `.baz-${uid}`);
-  try {
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    // mkdir is a no-op when the directory already exists, so an earlier version
-    // of this plugin (or a umask) could have left it group/world readable.
-    fs.chmodSync(dir, 0o700);
-    cachedDir = dir;
-  } catch {
-    cachedDir = base;
+  if (cachedDir !== undefined) return cachedDir;
+  for (const dir of candidateDirs()) {
+    // mkdir first (no-op when it already exists), then verify what is actually
+    // there — an existing entry is never trusted on the strength of mkdir alone.
+    try { fs.mkdirSync(dir, { recursive: true, mode: 0o700 }); } catch {}
+    if (isPrivateDir(dir)) {
+      cachedDir = dir;
+      return cachedDir;
+    }
   }
+  cachedDir = null;
   return cachedDir;
 }
 
 // Absolute path of one scratch file, e.g. scratchPath('plan', sid, 'md').
+// null when no private directory is available; callers treat that as
+// "this feature is off for this session".
 function scratchPath(kind, sessionId, ext) {
-  return path.join(scratchDir(), `.baz-${kind}-${sessionId}.${ext}`);
+  const dir = scratchDir();
+  return dir ? path.join(dir, `.baz-${kind}-${sessionId}.${ext}`) : null;
 }
 
-module.exports = { failSoft, readHookInput, sessionIdOf, scratchDir, scratchPath };
+// Where versions of this plugin before the private directory wrote everything.
+// Read-only compatibility: a session that was already running when the plugin
+// was upgraded (a live `/reload-plugins`) has its plan, repo list, token tally
+// and parked payload sitting here, written by the old hooks. Readers fall back
+// to it and consume it; nothing writes here any more, and the reaper in
+// session-end.js clears what is left behind.
+function legacyPath(kind, sessionId, ext) {
+  return path.join('/tmp', `.baz-${kind}-${sessionId}.${ext}`);
+}
+
+// Read whichever of the two locations has the file, newest namespace first.
+// Returns { path, content } or null. The caller decides whether to unlink.
+function readScratchFile(kind, sessionId, ext) {
+  for (const p of [scratchPath(kind, sessionId, ext), legacyPath(kind, sessionId, ext)]) {
+    if (!p) continue;
+    try {
+      return { path: p, content: fs.readFileSync(p, 'utf8') };
+    } catch {}
+  }
+  return null;
+}
+
+module.exports = {
+  failSoft,
+  readHookInput,
+  sessionIdOf,
+  scratchDir,
+  scratchPath,
+  legacyPath,
+  readScratchFile,
+};

@@ -18,8 +18,12 @@ const cwd =
     : '');
 if (!sessionId) process.exit(0);
 
-// Where this session's plan file goes. Private to this user (mode 0700), so
-// the plan is not readable by other local accounts the way a /tmp file is.
+// Where this session's plan file goes. scratchPath() returns null when no
+// directory could be established and verified private (mode 0700, owned by us,
+// not a symlink) — it never falls back to a shared one. With no such directory
+// there is nowhere safe to put a proprietary plan, so we say nothing about a
+// plan file at all rather than naming a path we cannot make private, and the
+// completion contract below is omitted with it.
 const planPath = scratchPath('plan', sessionId, 'md');
 
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
@@ -51,10 +55,12 @@ if (sessionRepo) {
 if (agentVendor) {
   args += `, \`agentVendor: "${agentVendor}"\``;
 }
-instruction +=
-  ` If you write a plan file for this session, write it to \`${planPath}\` —`
-  + ` a directory this plugin owns, readable only by you. Do not put a plan in`
-  + ` shared /tmp.`;
+if (planPath) {
+  instruction +=
+    ` If you write a plan file for this session, write it to \`${planPath}\` —`
+    + ` a directory this plugin owns, readable only by you. Do not put a plan in`
+    + ` shared /tmp.`;
+}
 instruction += ` When calling baz planning MCP tools (\`mcp__baz__repo_search\`, \`mcp__baz__remote_file_search\`, \`mcp__baz__remote_grep\`), always include ${args} as arguments. This is required for baz to correlate tool calls back to this session and the repo you are working in.`;
 
 // Codex and Cursor have no ExitPlanMode, so writing the scratch plan file is
@@ -71,7 +77,7 @@ instruction += ` When calling baz planning MCP tools (\`mcp__baz__repo_search\`,
 // hooks, so the plan-complete prompt never reaches the model there — it has to
 // raise the upload question itself. Either way the upload waits on the user's
 // yes; nothing here authorizes the call.
-if (agentVendor === 'codex' || agentVendor === 'cursor') {
+if (planPath && (agentVendor === 'codex' || agentVendor === 'cursor')) {
   instruction +=
     ` COMPLETION CONTRACT: when you finish planning, write your final plan to` +
     ` the plan-file path given above. Writing that file is local and needs` +
@@ -82,7 +88,7 @@ if (agentVendor === 'codex' || agentVendor === 'cursor') {
     ` the plan is never published and the planner session stays open, which is the accepted` +
     ` cost.`;
 }
-if (agentVendor === 'cursor') {
+if (planPath && agentVendor === 'cursor') {
   instruction +=
     ` (Cursor-specific: no automated follow-up prompt will arrive after the file` +
     ` write, so this is the only copy of the contract you get — everything above` +

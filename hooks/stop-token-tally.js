@@ -30,6 +30,7 @@ const turnModelId =
 if (turnInput === 0 && turnOutput === 0 && !turnModelId) process.exit(0);
 
 const tallyPath = scratchPath('tokens', sessionId, 'json');
+if (!tallyPath) process.exit(0);
 
 let tally = { input_tokens: 0, output_tokens: 0, model_id: '' };
 try {

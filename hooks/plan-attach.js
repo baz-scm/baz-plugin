@@ -1,5 +1,4 @@
-const fs = require('fs');
-const { failSoft, readHookInput, sessionIdOf, scratchPath } = require('./hook-io');
+const { failSoft, readHookInput, sessionIdOf, readScratchFile } = require('./hook-io');
 
 failSoft();
 
@@ -16,14 +15,7 @@ function tryParseJson(text) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
-function safeReadFile(filePath) {
-  try { return fs.readFileSync(filePath, 'utf8'); } catch { return null; }
-}
 
-// Keep in sync with plan-complete.js.
-function pendingPayloadPath(sid) {
-  return scratchPath('plan-pending', sid, 'json');
-}
 
 function passThrough() {
   process.exit(0);
@@ -40,7 +32,11 @@ const toolInput =
 
 if (typeof toolInput.content === 'string' && toolInput.content.trim()) passThrough();
 
-const payload = tryParseJson(safeReadFile(pendingPayloadPath(sessionId)));
+// Private path first, then the pre-upgrade /tmp one: a plan parked by the old
+// hooks before a live `/reload-plugins` must still reach the call, or the
+// agent sends {} and the server rejects it.
+const parked = readScratchFile('plan-pending', sessionId, 'json');
+const payload = parked ? tryParseJson(parked.content) : null;
 if (!payload || typeof payload.content !== 'string' || !payload.content.trim()) {
   passThrough();
 }
