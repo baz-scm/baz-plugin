@@ -473,7 +473,7 @@ const instruction = [
     ` Identical content is deduped server-side, so a redundant call costs nothing.`,
   `The tool result contains a shareable plan link — include that link in your` +
     ` reply so the user can open the uploaded plan, and tell them they can run` +
-    ` \`/baz:plan-comments\` any time to pull the plan's comments back into this` +
+    ` \`/baz:get-plan-comments\` any time to pull the plan's comments back into this` +
     ` session.`,
 ].filter(Boolean).join(' ');
 

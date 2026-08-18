@@ -50,7 +50,7 @@ Cursor doesn't auto-install MCP servers. Two manual steps:
 
 The `baz-codebase-exploration` skill teaches the agent when to use which, and to stop searching and start reading once it has a hit. It loads automatically when relevant.
 
-On top of those, the plugin ships three commands: `/baz:plan-with-baz` for planning a change, `/baz:plan-comments` for pulling a plan's review comments back into your session, and `/baz:review` for reviewing a change.
+On top of those, the plugin ships three commands: `/baz:plan-with-baz` for planning a change, `/baz:get-plan-comments` for pulling a plan's review comments back into your session, and `/baz:review` for reviewing a change.
 
 ## Planning command
 
@@ -74,18 +74,18 @@ Once a plan is written, the agent asks whether to upload it to Baz. **The plan i
 
 ## Plan comments command
 
-**`/baz:plan-comments`** brings the review comments on a plan back into your session, so feedback doesn't stay stranded in the browser.
+**`/baz:get-plan-comments`** brings the review comments on a plan back into your session, so feedback doesn't stay stranded in the browser.
 
 ```text
-/baz:plan-comments                                   # this session's plan
-/baz:plan-comments https://baz.co/plans/<plan-id>    # any other plan
+/baz:get-plan-comments                                   # this session's plan
+/baz:get-plan-comments https://baz.co/plans/<plan-id>    # any other plan
 ```
 
 | Platform | How to invoke |
 |---|---|
-| Claude Code | `/baz:plan-comments [plan url or id]` |
-| Cursor | `/plan-comments [plan url or id]` |
-| Codex | invoke the `plan-comments` skill |
+| Claude Code | `/baz:get-plan-comments [plan url or id]` |
+| Cursor | `/get-plan-comments [plan url or id]` |
+| Codex | invoke the `get-plan-comments` skill |
 
 It reads every comment and prints one table — what each asks, whether the claim actually holds (checked against the code, with file and line), and what it would change in the plan. Comments are grouped by the Use / Skip decision reviewers made on the plan page: those marked **Use** come with a recommendation to apply, untriaged ones are reported for you to decide, and skipped ones are listed and left alone.
 

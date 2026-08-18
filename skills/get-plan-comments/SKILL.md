@@ -1,10 +1,10 @@
 ---
-name: plan-comments
+name: get-plan-comments
 description: >
   Pull the comments teammates left on a Baz plan back into this session,
   summarize every one of them with an assessment and a recommendation, and —
   only after you choose — apply the ones you pick and reply on them. Invoke
-  with /baz:plan-comments.
+  with /baz:get-plan-comments.
 disable-model-invocation: true
 argument-hint: [plan id or URL, if not this session's plan]
 license: MIT
