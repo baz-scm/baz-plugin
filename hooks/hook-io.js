@@ -89,11 +89,22 @@ function sessionIdOf(payload) {
 // per-user on macOS; the uid in the name separates users on Linux), then a
 // directory under $HOME for hosts where the temp directory is unusable.
 function candidateDirs() {
-  const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
   const dirs = [];
-  try { dirs.push(path.join(os.tmpdir(), `.baz-${uid}`)); } catch {}
   const home = (typeof os.homedir === 'function' && os.homedir()) || process.env.HOME || '';
-  if (home) dirs.push(path.join(home, '.baz', 'scratch'));
+  if (typeof process.getuid === 'function') {
+    // POSIX: os.tmpdir() plus our uid, verified below by owner and mode.
+    try { dirs.push(path.join(os.tmpdir(), `.baz-${process.getuid()}`)); } catch {}
+    if (home) dirs.push(path.join(home, '.baz', 'scratch'));
+  } else if (home) {
+    // No getuid (Windows): we cannot name a directory per-user from a uid, and
+    // chmod 0700 does not restrict another account there — POSIX mode bits are
+    // not what isolates a Windows path, its ACL is, and we do not read ACLs.
+    // A shared TEMP root would therefore be accepted while being readable by
+    // other accounts, so only the per-user home directory is a candidate; it
+    // is ACL-restricted to its owner by default. If that is unavailable we
+    // resolve to null and the plan-file features stay off.
+    dirs.push(path.join(home, '.baz', 'scratch'));
+  }
   return dirs;
 }
 
@@ -104,7 +115,12 @@ function isPrivateDir(dir) {
   let st;
   try { st = fs.lstatSync(dir); } catch { return false; }
   if (!st.isDirectory()) return false;
-  if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return false;
+  if (typeof process.getuid !== 'function') {
+    // Non-POSIX: no owner check and no meaningful mode bits. We only get here
+    // for a path under the user's own home directory (see candidateDirs).
+    return true;
+  }
+  if (st.uid !== process.getuid()) return false;
   if ((st.mode & 0o077) !== 0) {
     // Ours but too permissive (an older version of this plugin, or a umask).
     try { fs.chmodSync(dir, 0o700); } catch { return false; }
@@ -150,16 +166,51 @@ function legacyPath(kind, sessionId, ext) {
   return path.join('/tmp', `.baz-${kind}-${sessionId}.${ext}`);
 }
 
-// Read whichever of the two locations has the file, newest namespace first.
-// Returns { path, content } or null. The caller decides whether to unlink.
-function readScratchFile(kind, sessionId, ext) {
-  for (const p of [scratchPath(kind, sessionId, ext), legacyPath(kind, sessionId, ext)]) {
-    if (!p) continue;
+// Every location this file could be in, private first. Callers that want to
+// merge both (counters, repo lists, token tallies) iterate; callers that want
+// one winner take the first that validates.
+function scratchCandidates(kind, sessionId, ext) {
+  return [scratchPath(kind, sessionId, ext), legacyPath(kind, sessionId, ext)]
+    .filter(Boolean);
+}
+
+// Read the first location whose content passes `isValid`, private before
+// legacy. Returns { path, content } or null; the caller decides whether to
+// unlink. The validator matters during an upgrade: an empty or truncated
+// private file must not shadow a good pre-upgrade one, or the plan silently
+// becomes unrecoverable. Default: any non-empty content.
+function readScratchFile(kind, sessionId, ext, isValid) {
+  const ok = typeof isValid === 'function'
+    ? isValid
+    : (content) => typeof content === 'string' && content.length > 0;
+  for (const p of scratchCandidates(kind, sessionId, ext)) {
+    let content;
     try {
-      return { path: p, content: fs.readFileSync(p, 'utf8') };
-    } catch {}
+      content = fs.readFileSync(p, 'utf8');
+    } catch { continue; }
+    if (ok(content)) return { path: p, content };
   }
   return null;
+}
+
+// Read *every* location that has this file, for callers that accumulate rather
+// than choose. Returns [{ path, content }] in private-then-legacy order.
+function readAllScratchFiles(kind, sessionId, ext) {
+  const found = [];
+  for (const p of scratchCandidates(kind, sessionId, ext)) {
+    try {
+      found.push({ path: p, content: fs.readFileSync(p, 'utf8') });
+    } catch {}
+  }
+  return found;
+}
+
+// A path is emitted into a Markdown code span in the agent's context. A root
+// taken from TMPDIR/HOME could carry a backtick or a newline and break out of
+// that span into model-facing text, so a path that cannot be rendered safely is
+// not emitted at all.
+function isRenderablePath(p) {
+  return typeof p === 'string' && p.length > 0 && !/[`\r\n\u0000-\u001f]/.test(p);
 }
 
 module.exports = {
@@ -170,4 +221,6 @@ module.exports = {
   scratchPath,
   legacyPath,
   readScratchFile,
+  readAllScratchFiles,
+  isRenderablePath,
 };

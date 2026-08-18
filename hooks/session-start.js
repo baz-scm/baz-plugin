@@ -1,5 +1,11 @@
 const { execSync } = require('child_process');
-const { failSoft, readHookInput, sessionIdOf, scratchPath } = require('./hook-io');
+const {
+  failSoft,
+  readHookInput,
+  sessionIdOf,
+  scratchPath,
+  isRenderablePath,
+} = require('./hook-io');
 
 failSoft();
 
@@ -24,7 +30,12 @@ if (!sessionId) process.exit(0);
 // there is nowhere safe to put a proprietary plan, so we say nothing about a
 // plan file at all rather than naming a path we cannot make private, and the
 // completion contract below is omitted with it.
-const planPath = scratchPath('plan', sessionId, 'md');
+const rawPlanPath = scratchPath('plan', sessionId, 'md');
+// The path is interpolated into a Markdown code span in the agent's context. A
+// root inherited from TMPDIR/HOME could contain a backtick or a newline and
+// break out of that span into model-facing text, so an unrenderable path is
+// treated exactly like having no directory at all.
+const planPath = isRenderablePath(rawPlanPath) ? rawPlanPath : null;
 
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 

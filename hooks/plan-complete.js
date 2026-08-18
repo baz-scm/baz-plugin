@@ -6,7 +6,10 @@ const {
   readHookInput,
   sessionIdOf,
   scratchPath,
+  scratchDir,
+  legacyPath,
   readScratchFile,
+  readAllScratchFiles,
 } = require('./hook-io');
 
 failSoft();
@@ -109,23 +112,52 @@ function normalizePlan(text) {
 
 // --- Trigger detection ------------------------------------------------------
 
+// Returns the matched destination path, or null. The path matters as well as
+// the match: it is the file the agent actually wrote, so extractPlan() reads it
+// rather than guessing which carrier holds the plan.
 function toolWritesPlanFile(hookInput, planFilename) {
   const input = coerceToolInput(hookInput.tool_input);
-  if (!input) return false;
+  if (!input) return null;
 
   const directPaths = ['file_path', 'path', 'target_file', 'notebook_path']
-    .map(k => input[k]);
-  if (directPaths.some(p => basenameOf(p) === planFilename)) return true;
+    .map(k => input[k])
+    .filter(p => typeof p === 'string');
+  for (const p of directPaths) {
+    if (basenameOf(p) === planFilename) return p;
+  }
 
   // Codex apply_patch: destination lives in a `command` envelope like
   // "*** Add File: <path>" / "*** Update File: <path>" / "*** Move to: <path>".
   if (typeof input.command === 'string') {
     const re = /\*\*\* (?:(?:Add|Update|Delete) File|Move to):\s*([^\n]+)/g;
     for (const m of input.command.matchAll(re)) {
-      if (basenameOf(m[1].trim()) === planFilename) return true;
+      const dest = m[1].trim();
+      if (basenameOf(dest) === planFilename) return dest;
     }
   }
 
+  return null;
+}
+
+// The basename match alone is deliberately loose (hosts rewrite the directory:
+// macOS turns /tmp into /private/tmp), but it must not let a write to some
+// unrelated directory pull in whatever this session has staged. A matched
+// destination is only trusted when it resolves into a directory we own — the
+// scratch directory or the pre-upgrade /tmp — after symlinks are resolved.
+function isOurPlanCarrier(destPath) {
+  if (typeof destPath !== 'string' || !destPath) return false;
+  const roots = [scratchDir(), '/tmp'].filter(Boolean);
+  let destDir;
+  try {
+    destDir = fs.realpathSync(path.dirname(path.resolve(destPath)));
+  } catch {
+    return false;
+  }
+  for (const root of roots) {
+    let resolved;
+    try { resolved = fs.realpathSync(root); } catch { continue; }
+    if (destDir === resolved) return true;
+  }
   return false;
 }
 
@@ -218,25 +250,34 @@ function extractCodexUsage(transcriptPath) {
 // over the display-name `model`); the tally file is last-write-wins for model
 // id across turns.
 function extractCursorUsage(sid) {
-  // A session that was mid-flight when the plugin was upgraded has its tally in
-  // the old /tmp location, written by the previous stop-token-tally.js.
-  const found = readScratchFile('tokens', sid, 'json');
-  if (!found) return null;
-  safeUnlink(found.path);
-  const parsed = tryParseJson(found.content);
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    typeof parsed.input_tokens !== 'number' ||
-    typeof parsed.output_tokens !== 'number'
-  ) return null;
-  const modelId = typeof parsed.model_id === 'string' && parsed.model_id
-    ? parsed.model_id
-    : null;
-  return {
-    tokens: { input_tokens: parsed.input_tokens, output_tokens: parsed.output_tokens },
-    modelId,
-  };
+  // A session that was mid-flight when the plugin was upgraded has turns tallied
+  // in both places: the old /tmp file from the previous stop-token-tally.js and
+  // the private one from this version. Both are summed, so the plan's token
+  // count covers the whole session, and both are consumed.
+  const found = readAllScratchFiles('tokens', sid, 'json');
+  if (found.length === 0) return null;
+  let input_tokens = 0, output_tokens = 0, modelId = null, sawTokens = false;
+  for (const { path: p, content } of found) {
+    safeUnlink(p);
+    const parsed = tryParseJson(content);
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed) ||
+      typeof parsed.input_tokens !== 'number' ||
+      typeof parsed.output_tokens !== 'number'
+    ) continue;
+    input_tokens += parsed.input_tokens;
+    output_tokens += parsed.output_tokens;
+    sawTokens = true;
+    // Private file first in the list, so the first model id seen is the most
+    // recent writer's.
+    if (!modelId && typeof parsed.model_id === 'string' && parsed.model_id) {
+      modelId = parsed.model_id;
+    }
+  }
+  if (!sawTokens) return null;
+  return { tokens: { input_tokens, output_tokens }, modelId };
 }
 
 // --- Plan extraction --------------------------------------------------------
@@ -266,10 +307,19 @@ function extractPlan(hookInput, sid) {
     const content = safeReadFile(ccPlanPath);
     return normalizePlan(content);
   }
-  // The private path first, then the pre-upgrade /tmp one: a session already
-  // running when the plugin was upgraded still has its plan there, and so does
-  // one whose skill predates the private directory. Only the file actually
-  // consumed is unlinked.
+  // Prefer the file the tool actually wrote, when the trigger identified one we
+  // own — that is the plan by definition, and it removes any question of which
+  // carrier is current. Otherwise the private path, then the pre-upgrade /tmp
+  // one, since a session already running when the plugin was upgraded still has
+  // its plan there. Only the file actually consumed is unlinked.
+  const matched = toolWritesPlanFile(hookInput, `.baz-plan-${sid}.md`);
+  if (matched && isOurPlanCarrier(matched)) {
+    const content = safeReadFile(matched);
+    if (content !== null && content.length > 0) {
+      safeUnlink(matched);
+      return normalizePlan(content);
+    }
+  }
   const found = readScratchFile('plan', sid, 'md');
   if (!found) return null;
   safeUnlink(found.path);
@@ -303,13 +353,14 @@ function collectRepos(sid, cwd) {
   const cwdRepo = repoFromCwd(cwd);
   if (cwdRepo) seen.add(cwdRepo);
 
-  const found = readScratchFile('repos', sid, 'json');
-  if (found !== null) {
-    safeUnlink(found.path);
-    for (const line of found.content.split('\n')) {
+  // Both locations, for a session whose repos were partly accumulated by the
+  // pre-upgrade hooks: the sets are merged, then each consumed file removed.
+  for (const { path: p, content } of readAllScratchFiles('repos', sid, 'json')) {
+    for (const line of content.split('\n')) {
       const name = line.trim();
       if (name) seen.add(name);
     }
+    safeUnlink(p);
   }
   return [...seen];
 }
@@ -332,7 +383,7 @@ if (!sessionId) process.exit(0);
 
 if ((d.tool_name || '') !== 'ExitPlanMode') {
   const hasCcPlanFile = claudeCodePlanFilePath(d) !== null;
-  const hasScratchPlanFile = toolWritesPlanFile(d, `.baz-plan-${sessionId}.md`);
+  const hasScratchPlanFile = toolWritesPlanFile(d, `.baz-plan-${sessionId}.md`) !== null;
   if (!hasCcPlanFile && !hasScratchPlanFile) process.exit(0);
 }
 

@@ -1,4 +1,4 @@
-name: validate-json
+name: validate
 
 on:
   push:
@@ -18,3 +18,10 @@ jobs:
           done
       - name: Validate plugin manifest
         run: npx -y @anthropic-ai/claude-code plugin validate . --strict
+      - name: Check hook syntax
+        run: for f in hooks/*.js; do node --check "$f"; done
+      - name: Run hook tests
+        # Behavioural, not syntactic: failSoft() turns a broken hook into a
+        # silent exit 0, so `node --check` alone has already let a real
+        # regression through.
+        run: node tests/hooks.test.js

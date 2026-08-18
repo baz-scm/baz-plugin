@@ -70,10 +70,14 @@ for (const dir of new Set([scratchDir(), '/tmp'].filter(Boolean))) {
     for (const name of fs.readdirSync(dir)) {
       const m = STALE.exec(name);
       if (!m) continue;
-      // Never reap the session we are running inside. On Codex this script runs
-      // on every turn, so a session that has been planning for more than a day
-      // would otherwise reap its own live plan out from under itself.
-      if (m[2] === sessionId) continue;
+      // Never reap the live state of the session we are running inside. On
+      // Codex this script runs on every turn, so a session that has been
+      // planning for more than a day would otherwise reap its own plan out from
+      // under itself. A `.claim` is not live state though — it is the residue of
+      // a run that died mid-claim, and exempting it would strand it forever, so
+      // it still ages out.
+      const isClaim = Boolean(m[4]);
+      if (m[2] === sessionId && !isClaim) continue;
       const p = path.join(dir, name);
       try {
         if (now - fs.statSync(p).mtimeMs > MAX_AGE_MS) fs.unlinkSync(p);
@@ -82,28 +86,42 @@ for (const dir of new Set([scratchDir(), '/tmp'].filter(Boolean))) {
   } catch {}
 }
 
-const logPath = scratchPath('counts', sessionId, 'json');
-
-// Claim the counter file before reading it. On Codex this hook runs on every
+// Claim each counter file before reading it. On Codex this hook runs on every
 // `Stop`, so two turns ending close together would both read a plain
 // read-then-delete and print the same summary twice. rename(2) is atomic: the
-// loser gets ENOENT and exits quietly, and the claimed name is what we read.
-const claimPath = `${logPath}.${process.pid}.claim`;
-try {
-  fs.renameSync(logPath, claimPath);
-} catch {
-  process.exit(0);
+// loser gets ENOENT and skips that file.
+//
+// Both locations are consumed: a session upgraded mid-flight has calls counted
+// by the old hooks in /tmp and by this version in the scratch directory, and a
+// summary that silently dropped the first half would be wrong rather than
+// merely incomplete.
+function claimCounter(target) {
+  if (!target) return null;
+  const claimPath = `${target}.${process.pid}.claim`;
+  try {
+    fs.renameSync(target, claimPath);
+  } catch {
+    return null;
+  }
+  let raw = null;
+  try {
+    raw = fs.readFileSync(claimPath, 'utf8');
+  } catch {}
+  // Unlink before any exit path — `process.exit` skips `finally`.
+  try { fs.unlinkSync(claimPath); } catch {}
+  return raw;
 }
 
-let raw = null;
-try {
-  raw = fs.readFileSync(claimPath, 'utf8');
-} catch {}
-// Unlink before any exit path — `process.exit` skips `finally`.
-try { fs.unlinkSync(claimPath); } catch {}
-if (raw === null) process.exit(0);
+const lines = [
+  scratchPath('counts', sessionId, 'json'),
+  legacyPath('counts', sessionId, 'json'),
+]
+  .map(claimCounter)
+  .filter(raw => raw !== null)
+  .flatMap(raw => raw.split('\n'))
+  .filter(Boolean);
 
-const lines = raw.split('\n').filter(Boolean);
+if (lines.length === 0) process.exit(0);
 
 const counts = {};
 for (const tool of lines) counts[tool] = (counts[tool] || 0) + 1;

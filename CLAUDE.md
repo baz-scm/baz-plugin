@@ -1,6 +1,6 @@
 # baz-plugin
 
-Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools. All three platforms wire a session-start hook that surfaces session id + cwd repo so baz can correlate tool calls, and a PostToolUse hook that watches for the agent writing its final plan to the session's scratch plan file (`.baz-plan-<sessionId>.md` in the plugin's private directory; see Scratch-file lifecycle) — that file-write is the cross-platform "I'm done planning" signal that prompts the agent to ask the user whether to upload the plan. Only on the user's yes does it call `mcp__baz__update_plan`, which persists the plan, emits the `planner_session_completed` event, and returns a shareable plan link. An uploaded plan is an object teammates open, comment on, and review inside Baz, the way a pull request lives in GitHub.
+Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools. All three platforms wire a session-start hook that surfaces two values — the agent's session ID and the repository the working directory belongs to — so baz can correlate tool calls, and a PostToolUse hook that watches for the agent writing its final plan to the session's scratch plan file (`.baz-plan-<sessionId>.md` in the plugin's private directory; see Scratch-file lifecycle) — that file-write is the cross-platform "I'm done planning" signal that prompts the agent to ask the user whether to upload the plan. Only on the user's yes does it call `mcp__baz__update_plan`, which persists the plan, emits the `planner_session_completed` event, and returns a shareable plan link. An uploaded plan is an object teammates open, comment on, and review inside Baz, the way a pull request lives in GitHub.
 
 ## Repo layout
 
@@ -8,6 +8,8 @@ Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools
 .claude-plugin/plugin.json      CC plugin manifest (MCP server + skills + hooks)
 .codex-plugin/plugin.json       Codex CLI plugin manifest
 .cursor-plugin/plugin.json      Cursor plugin manifest
+
+tests/hooks.test.js             Process-level hook tests, no dependencies: `node tests/hooks.test.js`. CI runs them.
 
 hooks/
   hook-io.js                    Shared: failSoft() + readHookInput(). Every hook calls both first — see "Hooks must never exit non-zero".
@@ -57,6 +59,8 @@ Every hook starts with `failSoft()` and gets its payload from `readHookInput()` 
 The reported crash was `JSON.parse('')`: Codex fires `Stop` with no JSON body on some turns, and `session-end.js` parsed stdin unguarded. Every hook had the same shape. `readHookInput()` reads fd 0 (not `/dev/stdin`), and returns `null` for absent stdin (a closed fd or a TTY throws EAGAIN), empty input, non-JSON, and non-object JSON such as `null` or an array — each hook treats `null` as "nothing to do". `failSoft()` additionally traps `uncaughtException` / `unhandledRejection` and swallows stdout/stderr EPIPE, so a host that closes the pipe mid-write doesn't turn a `console.log` into a crash. Filesystem calls that are best-effort (the counters, the parked payload, the read-then-delete in `session-end.js`, which races with itself on Codex since `Stop` is per-turn) are individually wrapped too.
 
 **The cost of failing soft is that a broken hook looks like a working one.** `failSoft()` turns any runtime error into a clean exit 0 with no output, which is indistinguishable from "nothing to do" — a missing `+` between two template literals once silenced the whole upload prompt while `node --check` still passed, because adjacent template literals are a legal tagged-template call. So never verify a hook with `node --check` alone: run it with a realistic payload and assert the output is **non-empty**.
+
+**This is why the hooks have tests.** `tests/hooks.test.js` runs each hook as a process with realistic Claude Code / Codex / Cursor payloads and asserts observable behaviour: exit 0 across every bad-input class, **non-empty output** from `session-start` / `plan-complete` / `plan-attach`, files created and consumed in both namespaces, the atomic counter claim under concurrency, per-vendor cleanup, reaper exclusions, and that a hostile session id or an unrenderable path changes nothing. No framework and no dependencies — `node tests/hooks.test.js`, wired into `.github/workflows/validate-json.yml` alongside the JSON and manifest checks. Reintroducing the missing-`+` bug makes four of them fail while `node --check` still passes, which is the whole point: **assert on output, never on syntax.**
 
 ## Scratch-file lifecycle
 
