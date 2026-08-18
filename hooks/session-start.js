@@ -107,7 +107,7 @@ if (planPath && agentVendor === 'cursor') {
     ` call \`mcp__baz__update_plan\` with \`sessionId: "${sessionId}"\` and` +
     ` \`content\` set to the exact plan text you just wrote (verbatim, no` +
     ` summary), then show the user the plan link from the tool result and tell` +
-    ` them they can run the plan-comments command any time to pull the plan's` +
+    ` them they can run the get-plan-comments command any time to pull the plan's` +
     ` comments back into this session. Ask once per session: if you already have` +
     ` the user's answer, reuse it rather than asking again — on a yes, a revised` +
     ` plan is re-uploaded with the new text, and on a no the question is closed.)`;

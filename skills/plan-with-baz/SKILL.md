@@ -53,29 +53,48 @@ Open with **one paragraph, four sentences at most**, in plain language: what you
 are going to do and how it works once it lands. Someone who knows the product but
 not this code should follow it without reading anything below. No file paths.
 
+Describe the change, not the status quo. Today's behaviour is the table's left
+column, and repeating it here charges the reader for the same paragraph twice.
+
 Then a **Before / After table** tracing one thing through the system (a request,
 a job, a record), one row per step, at most six rows, so the change reads across
 each row instead of by diffing two blocks:
 
 | Step | Today | After |
 | --- | --- | --- |
-| <what happens at this point> | <current behaviour> | <what differs, or "unchanged"> |
+| <what happens at this point> | <current behaviour> | <what differs> **(changed)** |
 
-Mark every cell **(new)**, **(changed)** or **(unchanged)**, using those three
-words everywhere in the plan. The unchanged ones are what show how much is being
-reused. Keep cells to one line; a step needing more than that is really two steps.
+Mark the **After** cell **(new)**, **(changed)** or **(unchanged)**, using those
+three words everywhere in the plan. Mark that cell only: Today is unchanged by
+definition, so tagging it too repeats one fact on every row. The unchanged
+markers are what show how much is being reused. Keep cells to one line; a step
+needing more than that is really two steps.
+
+Keep **at most one (unchanged) row**, and only where a reviewer would otherwise
+ask whether that part broke. "The existing stat cards still read the same fields"
+earns its row. "The request URL is the same" does not: nobody wondered, and a row
+nobody wondered about is a blank line with a border.
 
 No ASCII diagrams. Plans are read as rendered Markdown, where indentation-aligned
 art becomes a striped, unreadable block.
 
 Then one ```mermaid``` `sequenceDiagram` tracing the same journey at runtime:
-who calls whom, in order, ending where the result lands. Mark every participant
-and message with the same three words. Keep it under six participants and ten
-messages. Past that it stops being readable, and the excess belongs in Steps.
+who calls whom, in order, ending where the result lands. Mark the participants
+with the same three words, not the messages. Keep it under six participants and
+ten messages. Past that it stops being readable, and the excess belongs in Steps.
+
+Draw it only if it answers a question the table does not: fan-out, a loop, a
+branch, who waits on whom. A diagram that walks the same steps in the same order
+as the table is the table again in a slower form, so drop it and keep the table.
 
 Use `erDiagram` instead when the change is mostly tables and columns, or
-`flowchart TD` when there is no runtime sequence to trace. One diagram; a second
-only if it answers a different question.
+`flowchart TD` when there is no runtime sequence to trace. Never two diagrams.
+
+## Affected repos
+One line per repo, a few words each, no file paths and no second sentence. This
+shows the reach at a glance; what changes where belongs to Steps.
+
+- `<owner/repo>` — <what changes here>
 
 ## Decisions
 One bullet each, opening with a **bold few-word title** naming the choice, then
@@ -93,7 +112,12 @@ answer by reading the code is not an open question, it is unfinished research.
 ---
 
 ## Steps
-Ordered, **one sentence each**, naming at most two paths. No sub-bullets.
+Ordered, **one sentence of 25 words at most**, naming one path and at most three
+identifiers. No sub-bullets.
+
+A step you can only write by chaining clauses with commas is more than one step.
+Split it. Four short steps read faster than one long one, and the implementer can
+check them off.
 
 When a change repeats across sites, give the pattern and the scale, not the
 list: *"wherever `<existing peer>` appears, about eight deployment files"*. The
@@ -101,12 +125,19 @@ implementer greps for the peer and finds them all, including any you missed.
 
 Write for someone who reads the code as well as you do: do not explain what they
 will find on opening a file, restate reasoning from Decisions, or spell out a
-diff. Mark the load-bearing step. Where steps span repos, say what must land
-before what.
+diff. Mark the load-bearing step.
+
+For a multi-repo change, group the steps under a `###` heading per repo, with the
+order in the heading (`### owner/repo, deploys first`). Number them continuously
+across the groups, so a step keeps one number.
 
 ## Verification
-**Automated:** literal commands that prove it works.
-**Manual:** what a human must confirm.
+**Automated:** literal commands that prove it works, run from the repo root.
+Never an absolute path from your own machine: the plan is read by people whose
+checkout is somewhere else.
+
+**Manual:** one bullet per check, one line each. A semicolon-joined list of five
+things is not a checklist, and nobody can work through it.
 ```
 
 What goes in:
@@ -123,7 +154,7 @@ Present the plan and ask the user to approve before any implementation begins. D
 
 Writing the plan file is local and needs no permission. Uploading is different: `mcp__baz__update_plan` (fully qualified — `update_plan` alone is not a callable tool name) publishes the plan to Baz, where your teammates can open, comment on, and review it — plans live in Baz the way pull requests live in GitHub. **That is never automatic — ask the user and wait for their answer.**
 
-- **If they say yes**: call `mcp__baz__update_plan`, following the call shape the hook's instruction gives you. Where it says the arguments are attached for you, pass none — re-typing the plan wastes tokens and risks drift. Where it supplies authoritative `content` / `tokensUsed` / `modelId` / `repoNames` values (Codex and Cursor), pass those exactly as given rather than your own recollection or estimates. The tool result contains a **shareable plan link** — include it in your reply so the user can open the plan, and tell them they can run `/baz:plan-comments` any time to pull the plan's comments back into this session.
+- **If they say yes**: call `mcp__baz__update_plan`, following the call shape the hook's instruction gives you. Where it says the arguments are attached for you, pass none — re-typing the plan wastes tokens and risks drift. Where it supplies authoritative `content` / `tokensUsed` / `modelId` / `repoNames` values (Codex and Cursor), pass those exactly as given rather than your own recollection or estimates. The tool result contains a **shareable plan link** — include it in your reply so the user can open the plan, and tell them they can run `/baz:get-plan-comments` any time to pull the plan's comments back into this session.
 - **If they say no**: don't call it, and don't raise it again this session. The plan is never published and the planner session stays open; that's the accepted cost of not uploading.
 - Ask **once** per planning session — consent covers the session, not one specific call. A hook may prompt you more than once for the same plan (it fires on every plan-file write, so a revision re-triggers it). Don't re-ask; reuse the answer you already have. **If it was yes, call `update_plan` again**, so the version the user approved is what ends up in Baz — the latest plan text is what gets sent, whether the hook attaches it or you pass it inline. A redundant call is harmless — identical content is deduped server-side by content hash — but a skipped one leaves a stale draft as the final plan.
 

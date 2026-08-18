@@ -253,12 +253,12 @@ function extractCursorUsage(sid) {
   // A session that was mid-flight when the plugin was upgraded has turns tallied
   // in both places: the old /tmp file from the previous stop-token-tally.js and
   // the private one from this version. Both are summed, so the plan's token
-  // count covers the whole session, and both are consumed.
+  // count covers the whole session. Read, never consume: the tally is cumulative
+  // and this hook re-runs on every plan revision. session-end.js cleans up.
   const found = readAllScratchFiles('tokens', sid, 'json');
   if (found.length === 0) return null;
   let input_tokens = 0, output_tokens = 0, modelId = null, sawTokens = false;
-  for (const { path: p, content } of found) {
-    safeUnlink(p);
+  for (const { content } of found) {
     const parsed = tryParseJson(content);
     if (
       !parsed ||
@@ -356,14 +356,17 @@ function collectRepos(sid, cwd) {
   const cwdRepo = repoFromCwd(cwd);
   if (cwdRepo) seen.add(cwdRepo);
 
-  // Both locations, for a session whose repos were partly accumulated by the
-  // pre-upgrade hooks: the sets are merged, then each consumed file removed.
-  for (const { path: p, content } of readAllScratchFiles('repos', sid, 'json')) {
+  // Read, never consume: this hook re-runs on every plan revision and the last
+  // fire's repo list is the one that ships. session-end.js cleans up. Both
+  // namespaces are merged, for a session upgraded mid-flight.
+  //
+  // SAFE_REPO on every name, not just the cwd one: these are agent-supplied and
+  // end up interpolated into instruction text.
+  for (const { content } of readAllScratchFiles('repos', sid, 'json')) {
     for (const line of content.split('\n')) {
       const name = line.trim();
-      if (name) seen.add(name);
+      if (name && SAFE_REPO.test(name)) seen.add(name);
     }
-    safeUnlink(p);
   }
   return [...seen];
 }
@@ -447,9 +450,17 @@ const callShape = attachesLocally
       repoNames.length > 0 &&
         `Also pass \`repoNames: ${JSON.stringify(repoNames)}\` — this is the set of` +
         ` repositories relevant to this plan (the session's root repo plus every` +
-        ` repo searched via baz MCP tools). Pass the array exactly as given so the` +
-        ` plan is discoverable under each of these repos.`,
+        ` repo you named in a baz MCP tool call; repos that an org-wide` +
+        ` \`repo_search\` merely returned are not included). Pass the array exactly` +
+        ` as given so the plan is discoverable under each of these repos.`,
     ];
+
+// Each host invokes this command differently; see the table in README.md.
+const commentsCommand =
+  vendor === 'claude-code' ? '`/baz:get-plan-comments`' :
+  vendor === 'cursor'      ? '`/get-plan-comments`' :
+  vendor === 'codex'       ? 'the `get-plan-comments` skill' :
+  'the `get-plan-comments` command';
 
 const supersedes = attachesLocally
   ? `the attached content supersedes any earlier draft`
@@ -472,8 +483,8 @@ const instruction = [
     ` you were given. If that answer was yes, call the tool again now, ${supersedes}.` +
     ` Identical content is deduped server-side, so a redundant call costs nothing.`,
   `The tool result contains a shareable plan link — include that link in your` +
-    ` reply so the user can open the uploaded plan, and tell them they can run` +
-    ` \`/baz:plan-comments\` any time to pull the plan's comments back into this` +
+    ` reply so the user can open the uploaded plan, and tell them they can use` +
+    ` ${commentsCommand} any time to pull the plan's comments back into this` +
     ` session.`,
 ].filter(Boolean).join(' ');
 
