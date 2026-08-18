@@ -50,6 +50,11 @@ failSoft();
 
 const SAFE_VENDOR = /^[A-Za-z0-9._-]{1,64}$/;
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+// A `repository` argument may be the short leaf name (`baz`) as well as the full
+// `owner/repo`; baz-codebase-exploration documents both, so requiring the slash
+// dropped short-form repos from the upload. The character class is what makes a
+// name safe to interpolate, not the shape.
+const SAFE_REPO_ARG = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)?$/;
 
 const vendorArg = process.argv[2] || '';
 const vendor = SAFE_VENDOR.test(vendorArg) ? vendorArg : '';
@@ -360,12 +365,12 @@ function collectRepos(sid, cwd) {
   // fire's repo list is the one that ships. session-end.js cleans up. Both
   // namespaces are merged, for a session upgraded mid-flight.
   //
-  // SAFE_REPO on every name, not just the cwd one: these are agent-supplied and
-  // end up interpolated into instruction text.
+  // Validate every name, not just the cwd one: these are agent-supplied and end
+  // up interpolated into instruction text.
   for (const { content } of readAllScratchFiles('repos', sid, 'json')) {
     for (const line of content.split('\n')) {
       const name = line.trim();
-      if (name && SAFE_REPO.test(name)) seen.add(name);
+      if (name && SAFE_REPO_ARG.test(name)) seen.add(name);
     }
   }
   return [...seen];
