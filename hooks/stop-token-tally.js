@@ -1,6 +1,5 @@
 const fs = require('fs');
-const path = require('path');
-const { failSoft, readHookInput } = require('./hook-io');
+const { failSoft, readHookInput, sessionIdOf, scratchPath } = require('./hook-io');
 
 failSoft();
 
@@ -17,8 +16,7 @@ failSoft();
 const d = readHookInput();
 if (!d) process.exit(0);
 
-// Cursor uses `conversation_id` on some hooks and `session_id` on others.
-const sessionId = d.session_id || d.conversation_id || '';
+const sessionId = sessionIdOf(d);
 if (!sessionId) process.exit(0);
 
 const turnInput = Number(d.input_tokens) || 0;
@@ -31,7 +29,8 @@ const turnModelId =
 
 if (turnInput === 0 && turnOutput === 0 && !turnModelId) process.exit(0);
 
-const tallyPath = path.join('/tmp', `.baz-tokens-${sessionId}.json`);
+const tallyPath = scratchPath('tokens', sessionId, 'json');
+if (!tallyPath) process.exit(0);
 
 let tally = { input_tokens: 0, output_tokens: 0, model_id: '' };
 try {
@@ -55,5 +54,5 @@ if (turnModelId) tally.model_id = turnModelId;
 try {
   fs.writeFileSync(tallyPath, JSON.stringify(tally), { mode: 0o600 });
 } catch {
-  // If /tmp is not writable there's nothing to do; drop silently.
+  // If the scratch directory is not writable there's nothing to do.
 }

@@ -1,71 +1,127 @@
 const fs = require('fs');
 const path = require('path');
-const { failSoft, readHookInput } = require('./hook-io');
+const {
+  failSoft,
+  readHookInput,
+  sessionIdOf,
+  scratchDir,
+  scratchPath,
+  legacyPath,
+} = require('./hook-io');
 
 failSoft();
 
 const d = readHookInput();
 if (!d) process.exit(0);
 
-const sessionId = d.session_id || d.conversation_id || '';
+const sessionId = sessionIdOf(d);
 if (!sessionId) process.exit(0);
 
-// Every scratch file this plugin writes for this session. The plan text is the
-// sensitive one: it is the user's proprietary design sitting in a world-readable
-// /tmp. plan-complete.js deletes it as soon as it reads it, but that only covers
-// the path where the hook fires and gets that far — a session that ends with the
-// plan still on disk (hook not wired, an early exit, a plan the agent wrote but
-// never completed) must not leave it behind.
-for (const p of [
-  `/tmp/.baz-plan-${sessionId}.md`,
-  `/tmp/.baz-plan-pending-${sessionId}.json`,
-  `/tmp/.baz-repos-${sessionId}.json`,
-  `/tmp/.baz-tokens-${sessionId}.json`,
-]) {
-  try { fs.unlinkSync(p); } catch {}
+// argv[2] is the vendor name, passed by each platform's hook manifest. It is
+// what tells us whether this event actually ends the session: Codex has no
+// session-end event and fires `Stop` after every turn, so on Codex this script
+// runs many times inside one live session.
+//
+// This is an allowlist, and it **fails closed**: only a vendor we know fires a
+// terminal event gets the per-session delete. An omitted or unrecognised
+// argument — an older manifest still invoking this script with no vendor, a
+// future platform, a typo — must not be read as "safe to delete the plan".
+const TERMINAL_VENDORS = new Set(['claude-code']);
+const vendorArg = process.argv[2] || '';
+const isTerminal = TERMINAL_VENDORS.has(vendorArg);
+
+// Delete this session's scratch files — but only when the event really is the
+// end of the session. On Codex `Stop` is per-turn, and the plan file, the repos
+// list and the parked payload are all still being written and read by later
+// turns: post-tool-use.js keeps appending repos, and plan-complete.js reads the
+// plan when the agent finishes planning. Deleting them here would destroy live
+// state mid-session, so Codex leaves them to the reaper below.
+if (isTerminal) {
+  for (const p of [
+    scratchPath('plan', sessionId, 'md'),
+    scratchPath('plan-pending', sessionId, 'json'),
+    scratchPath('repos', sessionId, 'json'),
+    scratchPath('tokens', sessionId, 'json'),
+    // Anything the pre-upgrade hooks left in /tmp for this session.
+    legacyPath('plan', sessionId, 'md'),
+    legacyPath('plan-pending', sessionId, 'json'),
+    legacyPath('repos', sessionId, 'json'),
+    legacyPath('tokens', sessionId, 'json'),
+  ].filter(Boolean)) {
+    try { fs.unlinkSync(p); } catch {}
+  }
 }
 
 // Reaper for sessions whose end we never saw: a crashed host, a platform with
-// no session-end event (Cursor), or a plugin uninstalled mid-session. Anything
-// older than a day cannot belong to a live session, and each name is keyed by a
-// session id, so this only ever touches this plugin's own leftovers.
+// no session-end event (Cursor), a plugin uninstalled mid-session, or a Codex
+// session that only ever fires per-turn `Stop`. Anything older than a day
+// cannot belong to a live session, and each name is keyed by a session id, so
+// this only ever touches this plugin's own leftovers.
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Also matches a `.<pid>.claim` left behind by a session-end run that died
 // between claiming the counter file and deleting it.
-const STALE = /^\.baz-(plan|plan-pending|counts|repos|tokens)-.+\.(md|json)(\.\d+\.claim)?$/;
-try {
-  const now = Date.now();
-  for (const name of fs.readdirSync('/tmp')) {
-    if (!STALE.test(name)) continue;
-    const p = path.join('/tmp', name);
-    try {
-      if (now - fs.statSync(p).mtimeMs > MAX_AGE_MS) fs.unlinkSync(p);
-    } catch {}
-  }
-} catch {}
-
-const logPath = `/tmp/.baz-counts-${sessionId}.json`;
-
-// Claim the counter file before reading it. On Codex this hook runs on every
-// `Stop`, so two turns ending close together would both read a plain
-// read-then-delete and print the same summary twice. rename(2) is atomic: the
-// loser gets ENOENT and exits quietly, and the claimed name is what we read.
-const claimPath = `${logPath}.${process.pid}.claim`;
-try {
-  fs.renameSync(logPath, claimPath);
-} catch {
-  process.exit(0);
+const STALE = /^\.baz-(plan-pending|plan|counts|repos|tokens)-(.+?)\.(md|json)(\.\d+\.claim)?$/;
+// `/tmp` is where versions of this plugin before the private scratch directory
+// wrote everything; keep reaping it so their leftovers don't outlive the
+// upgrade. Nothing is written there any more.
+for (const dir of new Set([scratchDir(), '/tmp'].filter(Boolean))) {
+  try {
+    const now = Date.now();
+    for (const name of fs.readdirSync(dir)) {
+      const m = STALE.exec(name);
+      if (!m) continue;
+      // Never reap the live state of the session we are running inside. On
+      // Codex this script runs on every turn, so a session that has been
+      // planning for more than a day would otherwise reap its own plan out from
+      // under itself. A `.claim` is not live state though — it is the residue of
+      // a run that died mid-claim, and exempting it would strand it forever, so
+      // it still ages out.
+      const isClaim = Boolean(m[4]);
+      if (m[2] === sessionId && !isClaim) continue;
+      const p = path.join(dir, name);
+      try {
+        if (now - fs.statSync(p).mtimeMs > MAX_AGE_MS) fs.unlinkSync(p);
+      } catch {}
+    }
+  } catch {}
 }
 
-let raw = null;
-try {
-  raw = fs.readFileSync(claimPath, 'utf8');
-} catch {}
-// Unlink before any exit path — `process.exit` skips `finally`.
-try { fs.unlinkSync(claimPath); } catch {}
-if (raw === null) process.exit(0);
+// Claim each counter file before reading it. On Codex this hook runs on every
+// `Stop`, so two turns ending close together would both read a plain
+// read-then-delete and print the same summary twice. rename(2) is atomic: the
+// loser gets ENOENT and skips that file.
+//
+// Both locations are consumed: a session upgraded mid-flight has calls counted
+// by the old hooks in /tmp and by this version in the scratch directory, and a
+// summary that silently dropped the first half would be wrong rather than
+// merely incomplete.
+function claimCounter(target) {
+  if (!target) return null;
+  const claimPath = `${target}.${process.pid}.claim`;
+  try {
+    fs.renameSync(target, claimPath);
+  } catch {
+    return null;
+  }
+  let raw = null;
+  try {
+    raw = fs.readFileSync(claimPath, 'utf8');
+  } catch {}
+  // Unlink before any exit path — `process.exit` skips `finally`.
+  try { fs.unlinkSync(claimPath); } catch {}
+  return raw;
+}
 
-const lines = raw.split('\n').filter(Boolean);
+const lines = [
+  scratchPath('counts', sessionId, 'json'),
+  legacyPath('counts', sessionId, 'json'),
+]
+  .map(claimCounter)
+  .filter(raw => raw !== null)
+  .flatMap(raw => raw.split('\n'))
+  .filter(Boolean);
+
+if (lines.length === 0) process.exit(0);
 
 const counts = {};
 for (const tool of lines) counts[tool] = (counts[tool] || 0) + 1;

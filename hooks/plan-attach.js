@@ -1,6 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-const { failSoft, readHookInput } = require('./hook-io');
+const { failSoft, readHookInput, sessionIdOf, readScratchFile } = require('./hook-io');
 
 failSoft();
 
@@ -18,17 +16,6 @@ function tryParseJson(text) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
-function safeReadFile(filePath) {
-  try { return fs.readFileSync(filePath, 'utf8'); } catch { return null; }
-}
-
-// Keep in sync with plan-complete.js.
-function pendingPayloadPath(sid) {
-  return path.join('/tmp', `.baz-plan-pending-${sid}.json`);
-}
-
-const SAFE_SESSION = /^[A-Za-z0-9-]{1,128}$/;
-
 function passThrough() {
   process.exit(0);
 }
@@ -36,8 +23,8 @@ function passThrough() {
 const d = readHookInput();
 if (!d) passThrough();
 
-const sessionId = d.session_id || d.conversation_id || '';
-if (!sessionId || !SAFE_SESSION.test(sessionId)) passThrough();
+const sessionId = sessionIdOf(d);
+if (!sessionId) passThrough();
 
 const toolInput =
   d.tool_input && typeof d.tool_input === 'object' ? d.tool_input : {};
@@ -50,7 +37,11 @@ function linkInput() {
 function updatePlanInput() {
   if (typeof toolInput.content === 'string' && toolInput.content.trim()) return null;
 
-  const payload = tryParseJson(safeReadFile(pendingPayloadPath(sessionId)));
+  // Private path first, then the pre-upgrade /tmp one: a plan parked by the old
+  // hooks before a live `/reload-plugins` must still reach the call, or the
+  // agent sends {} and the server rejects it.
+  const parked = readScratchFile('plan-pending', sessionId, 'json');
+  const payload = parked ? tryParseJson(parked.content) : null;
   if (!payload || typeof payload.content !== 'string' || !payload.content.trim()) {
     return null;
   }

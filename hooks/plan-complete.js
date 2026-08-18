@@ -1,7 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { failSoft, readHookInput } = require('./hook-io');
+const {
+  failSoft,
+  readHookInput,
+  sessionIdOf,
+  scratchPath,
+  scratchDir,
+  legacyPath,
+  readScratchFile,
+  readAllScratchFiles,
+} = require('./hook-io');
 
 failSoft();
 
@@ -22,7 +31,8 @@ failSoft();
 //      duplicate update_plan call is deduped server-side by content hash
 //      (identical content → same version).
 //   3. File-write tools (Write/Edit/apply_patch/edit_file/write_file) — agent
-//      planned inline and wrote its final plan to /tmp/.baz-plan-<sessionId>.md
+//      planned inline and wrote its final plan to .baz-plan-<sessionId>.md in
+//      the plugin's scratch directory (see hook-io.js)
 //      per SKILL.md / .cursor/rules / AGENTS.md. The primary path — every
 //      platform, including Claude Code.
 //
@@ -32,7 +42,8 @@ failSoft();
 // different field: CC Write/Edit uses `file_path`, Cursor edit_file/write_file
 // uses `path` or `target_file`, Codex apply_patch encodes the path in a
 // `command` envelope (e.g. "*** Add File: <path>"). We match by basename
-// because macOS resolves /tmp → /private/tmp before the path reaches the hook.
+// because the host may resolve or rewrite the directory before the path
+// reaches the hook (macOS turns /tmp into /private/tmp, for one).
 //
 // argv[2] is the vendor name ('claude-code' | 'codex' | 'cursor'); the
 // per-platform hook manifest passes it so we can dispatch token extraction.
@@ -59,13 +70,17 @@ function safeUnlink(filePath) {
 
 // Keep in sync with plan-attach.js.
 function pendingPayloadPath(sid) {
-  return path.join('/tmp', `.baz-plan-pending-${sid}.json`);
+  return scratchPath('plan-pending', sid, 'json');
 }
 
 // False if it cannot be parked, so the caller falls back to inlining the plan.
+// That includes having no private scratch directory at all: we never park a
+// plan in a directory other accounts can read.
 function writePendingPayload(sid, payload) {
+  const target = pendingPayloadPath(sid);
+  if (!target) return false;
   try {
-    fs.writeFileSync(pendingPayloadPath(sid), JSON.stringify(payload), { mode: 0o600 });
+    fs.writeFileSync(target, JSON.stringify(payload), { mode: 0o600 });
     return true;
   } catch { return false; }
 }
@@ -97,23 +112,52 @@ function normalizePlan(text) {
 
 // --- Trigger detection ------------------------------------------------------
 
+// Returns the matched destination path, or null. The path matters as well as
+// the match: it is the file the agent actually wrote, so extractPlan() reads it
+// rather than guessing which carrier holds the plan.
 function toolWritesPlanFile(hookInput, planFilename) {
   const input = coerceToolInput(hookInput.tool_input);
-  if (!input) return false;
+  if (!input) return null;
 
   const directPaths = ['file_path', 'path', 'target_file', 'notebook_path']
-    .map(k => input[k]);
-  if (directPaths.some(p => basenameOf(p) === planFilename)) return true;
+    .map(k => input[k])
+    .filter(p => typeof p === 'string');
+  for (const p of directPaths) {
+    if (basenameOf(p) === planFilename) return p;
+  }
 
   // Codex apply_patch: destination lives in a `command` envelope like
   // "*** Add File: <path>" / "*** Update File: <path>" / "*** Move to: <path>".
   if (typeof input.command === 'string') {
     const re = /\*\*\* (?:(?:Add|Update|Delete) File|Move to):\s*([^\n]+)/g;
     for (const m of input.command.matchAll(re)) {
-      if (basenameOf(m[1].trim()) === planFilename) return true;
+      const dest = m[1].trim();
+      if (basenameOf(dest) === planFilename) return dest;
     }
   }
 
+  return null;
+}
+
+// The basename match alone is deliberately loose (hosts rewrite the directory:
+// macOS turns /tmp into /private/tmp), but it must not let a write to some
+// unrelated directory pull in whatever this session has staged. A matched
+// destination is only trusted when it resolves into a directory we own — the
+// scratch directory or the pre-upgrade /tmp — after symlinks are resolved.
+function isOurPlanCarrier(destPath) {
+  if (typeof destPath !== 'string' || !destPath) return false;
+  const roots = [scratchDir(), '/tmp'].filter(Boolean);
+  let destDir;
+  try {
+    destDir = fs.realpathSync(path.dirname(path.resolve(destPath)));
+  } catch {
+    return false;
+  }
+  for (const root of roots) {
+    let resolved;
+    try { resolved = fs.realpathSync(root); } catch { continue; }
+    if (destDir === resolved) return true;
+  }
   return false;
 }
 
@@ -201,29 +245,42 @@ function extractCodexUsage(transcriptPath) {
   return { tokens, modelId };
 }
 
-// Cursor: per-turn tally accumulated by stop-token-tally.js in /tmp. Both
+// Cursor: per-turn tally accumulated by stop-token-tally.js. Both
 // tokens and model id come from Cursor's stop hook payload (model_id preferred
 // over the display-name `model`); the tally file is last-write-wins for model
 // id across turns.
 function extractCursorUsage(sid) {
-  const tallyPath = path.join('/tmp', `.baz-tokens-${sid}.json`);
-  const raw = safeReadFile(tallyPath);
-  if (raw === null) return null;
-  safeUnlink(tallyPath);
-  const parsed = tryParseJson(raw);
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    typeof parsed.input_tokens !== 'number' ||
-    typeof parsed.output_tokens !== 'number'
-  ) return null;
-  const modelId = typeof parsed.model_id === 'string' && parsed.model_id
-    ? parsed.model_id
-    : null;
-  return {
-    tokens: { input_tokens: parsed.input_tokens, output_tokens: parsed.output_tokens },
-    modelId,
-  };
+  // A session that was mid-flight when the plugin was upgraded has turns tallied
+  // in both places: the old /tmp file from the previous stop-token-tally.js and
+  // the private one from this version. Both are summed, so the plan's token
+  // count covers the whole session, and both are consumed.
+  const found = readAllScratchFiles('tokens', sid, 'json');
+  if (found.length === 0) return null;
+  let input_tokens = 0, output_tokens = 0, modelId = null, sawTokens = false;
+  for (const { path: p, content } of found) {
+    safeUnlink(p);
+    const parsed = tryParseJson(content);
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed) ||
+      // Number.isFinite, not typeof: JSON.parse('1e400') yields Infinity, whose
+      // typeof is 'number' and which JSON.stringify writes back as null — the
+      // plan would carry `tokensUsed: {"input_tokens": null}`.
+      !Number.isFinite(parsed.input_tokens) ||
+      !Number.isFinite(parsed.output_tokens)
+    ) continue;
+    input_tokens += parsed.input_tokens;
+    output_tokens += parsed.output_tokens;
+    sawTokens = true;
+    // Private file first in the list, so the first model id seen is the most
+    // recent writer's.
+    if (!modelId && typeof parsed.model_id === 'string' && parsed.model_id) {
+      modelId = parsed.model_id;
+    }
+  }
+  if (!sawTokens) return null;
+  return { tokens: { input_tokens, output_tokens }, modelId };
 }
 
 // --- Plan extraction --------------------------------------------------------
@@ -253,16 +310,28 @@ function extractPlan(hookInput, sid) {
     const content = safeReadFile(ccPlanPath);
     return normalizePlan(content);
   }
-  const planPath = path.join('/tmp', `.baz-plan-${sid}.md`);
-  const content = safeReadFile(planPath);
-  if (content === null) return null;
-  safeUnlink(planPath);
-  return normalizePlan(content);
+  // Prefer the file the tool actually wrote, when the trigger identified one we
+  // own — that is the plan by definition, and it removes any question of which
+  // carrier is current. Otherwise the private path, then the pre-upgrade /tmp
+  // one, since a session already running when the plugin was upgraded still has
+  // its plan there. Only the file actually consumed is unlinked.
+  const matched = toolWritesPlanFile(hookInput, `.baz-plan-${sid}.md`);
+  if (matched && isOurPlanCarrier(matched)) {
+    const content = safeReadFile(matched);
+    if (content !== null && content.length > 0) {
+      safeUnlink(matched);
+      return normalizePlan(content);
+    }
+  }
+  const found = readScratchFile('plan', sid, 'md');
+  if (!found) return null;
+  safeUnlink(found.path);
+  return normalizePlan(found.content);
 }
 
 // --- Repos related to the plan ----------------------------------------------
 // post-tool-use.js accumulates the `repository` / `sessionRepository` argument
-// from every baz MCP tool call into /tmp/.baz-repos-<sessionId>.json. We also
+// from every baz MCP tool call into .baz-repos-<sessionId>.json. We also
 // derive the session's own repo from cwd so the plan is always attributed to
 // where the user is actually working.
 
@@ -287,14 +356,14 @@ function collectRepos(sid, cwd) {
   const cwdRepo = repoFromCwd(cwd);
   if (cwdRepo) seen.add(cwdRepo);
 
-  const reposPath = path.join('/tmp', `.baz-repos-${sid}.json`);
-  const raw = safeReadFile(reposPath);
-  if (raw !== null) {
-    safeUnlink(reposPath);
-    for (const line of raw.split('\n')) {
+  // Both locations, for a session whose repos were partly accumulated by the
+  // pre-upgrade hooks: the sets are merged, then each consumed file removed.
+  for (const { path: p, content } of readAllScratchFiles('repos', sid, 'json')) {
+    for (const line of content.split('\n')) {
       const name = line.trim();
       if (name) seen.add(name);
     }
+    safeUnlink(p);
   }
   return [...seen];
 }
@@ -312,12 +381,12 @@ function cwdFromHookInput(hookInput) {
 const d = readHookInput();
 if (!d) process.exit(0);
 
-const sessionId = d.session_id || d.conversation_id || '';
+const sessionId = sessionIdOf(d);
 if (!sessionId) process.exit(0);
 
 if ((d.tool_name || '') !== 'ExitPlanMode') {
   const hasCcPlanFile = claudeCodePlanFilePath(d) !== null;
-  const hasScratchPlanFile = toolWritesPlanFile(d, `.baz-plan-${sessionId}.md`);
+  const hasScratchPlanFile = toolWritesPlanFile(d, `.baz-plan-${sessionId}.md`) !== null;
   if (!hasCcPlanFile && !hasScratchPlanFile) process.exit(0);
 }
 
@@ -385,7 +454,7 @@ const callShape = attachesLocally
 const supersedes = attachesLocally
   ? `the attached content supersedes any earlier draft`
   : `using the \`content\` in THIS instruction: it supersedes any earlier draft,` +
-    ` so this is how the version the user ultimately approved is what lands in Baz`;
+    ` so the version the user ultimately approved is what lands in Baz`;
 
 const instruction = [
   `ASK THE USER — DO NOT UPLOAD YET: You just finished planning. Baz can` +
