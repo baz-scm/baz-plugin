@@ -77,6 +77,12 @@ Use `erDiagram` instead when the change is mostly tables and columns, or
 `flowchart TD` when there is no runtime sequence to trace. One diagram; a second
 only if it answers a different question.
 
+## Affected repos
+One line per repo, a few words each, no file paths and no second sentence. This
+shows the reach at a glance; what changes where belongs to Steps.
+
+- `<owner/repo>` — <what changes here>
+
 ## Decisions
 One bullet each, opening with a **bold few-word title** naming the choice, then
 two sentences at most:
