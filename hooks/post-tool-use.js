@@ -8,18 +8,10 @@ if (!d) process.exit(0);
 const sessionId = sessionIdOf(d);
 if (!sessionId) process.exit(0);
 
-// Cursor has no session-end hook wired, so the counts summary never prints and
-// the counter file would accumulate with no reaper. Skip the counts append on
-// Cursor only: nothing would ever read it there.
-//
-// The repos append below still fires on every platform, because plan-complete.js
-// reads it on Cursor too and the upload needs it. It used to be consumed by that
-// read; it no longer is (see collectRepos), so on Cursor the repos and tokens
-// files now accumulate the same way the counter file would have. Accepted under
-// the "Cursor is best-effort" posture: both are a few hundred bytes, mode 0600
-// inside a 0700 directory, and correct attribution on a revised plan is worth
-// more than reaping a small file. Giving Cursor a reaper needs a lifecycle hook
-// it actually runs.
+// Cursor has no session-end hook wired, so nothing would ever read the counter
+// file there. The repos append below still fires everywhere, because
+// plan-complete.js reads it on Cursor and the upload needs it — it accumulates
+// unreaped there, which CLAUDE.md accepts under "Cursor is best-effort".
 const isCursor = !d.session_id && d.conversation_id;
 
 if (!isCursor) {

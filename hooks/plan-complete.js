@@ -253,13 +253,8 @@ function extractCursorUsage(sid) {
   // A session that was mid-flight when the plugin was upgraded has turns tallied
   // in both places: the old /tmp file from the previous stop-token-tally.js and
   // the private one from this version. Both are summed, so the plan's token
-  // count covers the whole session.
-  //
-  // Read, never consume, for the same reason as `collectRepos()`: this hook fires
-  // again on every plan revision, and unlinking the tally left the second fire
-  // reporting only the turns since the first, or omitting `tokensUsed` entirely.
-  // The tally is cumulative for the session, so re-reading it must see the whole
-  // file. session-end.js and the reaper own the cleanup.
+  // count covers the whole session. Read, never consume: the tally is cumulative
+  // and this hook re-runs on every plan revision. session-end.js cleans up.
   const found = readAllScratchFiles('tokens', sid, 'json');
   if (found.length === 0) return null;
   let input_tokens = 0, output_tokens = 0, modelId = null, sawTokens = false;
@@ -361,23 +356,12 @@ function collectRepos(sid, cwd) {
   const cwdRepo = repoFromCwd(cwd);
   if (cwdRepo) seen.add(cwdRepo);
 
-  // Read, never consume. This hook fires more than once for one plan (the
-  // Claude Code plan-file write and then ExitPlanMode, and again on every
-  // revision on any platform), and the parked payload is overwritten by the
-  // last fire. Deleting the list here left every fire after the first with only
-  // the cwd repo, so a cross-repo plan uploaded with repoNames naming one repo.
-  // session-end.js unlinks the file when the session is terminal, and the
-  // 24h reaper takes it on Codex, where no event is terminal.
+  // Read, never consume: this hook re-runs on every plan revision and the last
+  // fire's repo list is the one that ships. session-end.js cleans up. Both
+  // namespaces are merged, for a session upgraded mid-flight.
   //
-  // Both locations, for a session whose repos were partly accumulated by the
-  // pre-upgrade hooks: the sets are merged.
-  //
-  // SAFE_REPO on every name, not just the cwd one. post-tool-use.js appends
-  // whatever `repository` / `sessionRepository` the agent passed to a baz search
-  // tool, and the agent's arguments can be shaped by untrusted content it read.
-  // From here a name is interpolated into `additionalContext` or the parked
-  // payload, both of which the model reads as instruction text, so an
-  // unvalidated name is a laundering path from file content into the prompt.
+  // SAFE_REPO on every name, not just the cwd one: these are agent-supplied and
+  // end up interpolated into instruction text.
   for (const { content } of readAllScratchFiles('repos', sid, 'json')) {
     for (const line of content.split('\n')) {
       const name = line.trim();
@@ -471,10 +455,7 @@ const callShape = attachesLocally
         ` as given so the plan is discoverable under each of these repos.`,
     ];
 
-// The comments command is invoked differently per platform (see the table in
-// README.md), so the shared instruction cannot name one syntax. Emitting
-// `/baz:get-plan-comments` everywhere handed Codex and Cursor users a command
-// their host does not have.
+// Each host invokes this command differently; see the table in README.md.
 const commentsCommand =
   vendor === 'claude-code' ? '`/baz:get-plan-comments`' :
   vendor === 'cursor'      ? '`/get-plan-comments`' :

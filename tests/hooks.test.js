@@ -410,18 +410,28 @@ test('the repo list survives a second fire on Claude Code', ({ env }) => {
   const dir = scratchDirFor(env);
   fs.writeFileSync(path.join(dir, '.baz-repos-twice.json'), 'org/a\norg/b\n');
   fs.writeFileSync(path.join(dir, '.baz-plan-twice.md'), '# Plan\n');
-  const fire = (toolName, toolInput) => runHook('plan-complete.js', {
+  const fire = (payload) => runHook('plan-complete.js', {
     session_id: 'twice',
     cwd: process.cwd(),
-    tool_name: toolName,
-    tool_input: toolInput,
+    ...payload,
   }, { env, vendor: 'claude-code' });
 
   // Claude Code fires twice for one plan: the plan-file write, then
-  // ExitPlanMode. The last fire overwrites the parked payload, so consuming the
-  // repo list on the first fire left the upload naming only the cwd repo.
-  fire('Write', { file_path: path.join(dir, '.baz-plan-twice.md') });
-  fire('ExitPlanMode', { plan: '# Plan\n' });
+  // ExitPlanMode, and the last fire overwrites the parked payload.
+  const first = fire({
+    tool_name: 'Write',
+    tool_input: { file_path: path.join(dir, '.baz-plan-twice.md') },
+  });
+  // Claude Code puts the plan on tool_response, which is the source extractPlan
+  // prefers; tool_input is only its fallback. Drive the real one.
+  const second = fire({
+    tool_name: 'ExitPlanMode', tool_input: {}, tool_response: { plan: '# Plan\n' },
+  });
+  // Both fires must actually run. A fire that extracts no plan exits quietly,
+  // and the payload the earlier fire parked would still satisfy the assertion
+  // below, so the test would pass without the second fire happening at all.
+  assert.ok(first.stdout.length > 0, 'the plan-file fire produced nothing');
+  assert.ok(second.stdout.length > 0, 'the ExitPlanMode fire produced nothing');
 
   // Assert on what update_plan actually receives, not on the parked file: the
   // upload loses attribution if either plan-complete.js parks a short list or
@@ -470,11 +480,15 @@ test('the repo list survives a plan revision on Codex', ({ env }) => {
   const planPath = path.join(dir, '.baz-plan-rev.md');
   const fire = () => {
     fs.writeFileSync(planPath, '# Plan\n');
+    // Codex carries the destination in an apply_patch envelope, not a file_path
+    // key, so this exercises the command parser rather than the generic branch.
     return runHook('plan-complete.js', {
       session_id: 'rev',
       cwd: process.cwd(),
       tool_name: 'apply_patch',
-      tool_input: { file_path: planPath },
+      tool_input: {
+        command: `*** Begin Patch\n*** Update File: ${planPath}\n+# Plan\n*** End Patch`,
+      },
     }, { env, vendor: 'codex' });
   };
 
