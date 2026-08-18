@@ -375,6 +375,53 @@ test('token tallies in both namespaces are summed', ({ env }) => {
   }
 });
 
+test('the repo list survives a second fire on Claude Code', ({ env }) => {
+  const dir = scratchDirFor(env);
+  fs.writeFileSync(path.join(dir, '.baz-repos-twice.json'), 'org/a\norg/b\n');
+  fs.writeFileSync(path.join(dir, '.baz-plan-twice.md'), '# Plan\n');
+  const fire = (toolName, toolInput) => runHook('plan-complete.js', {
+    session_id: 'twice',
+    cwd: process.cwd(),
+    tool_name: toolName,
+    tool_input: toolInput,
+  }, { env, vendor: 'claude-code' });
+
+  // Claude Code fires twice for one plan: the plan-file write, then
+  // ExitPlanMode. The last fire overwrites the parked payload, so consuming the
+  // repo list on the first fire left the upload naming only the cwd repo.
+  fire('Write', { file_path: path.join(dir, '.baz-plan-twice.md') });
+  fire('ExitPlanMode', { plan: '# Plan\n' });
+
+  const parked = JSON.parse(
+    fs.readFileSync(path.join(dir, '.baz-plan-pending-twice.json'), 'utf8'));
+  assert.ok(parked.repoNames.includes('org/a'), `got ${JSON.stringify(parked.repoNames)}`);
+  assert.ok(parked.repoNames.includes('org/b'), `got ${JSON.stringify(parked.repoNames)}`);
+});
+
+test('the repo list survives a plan revision on Codex', ({ env }) => {
+  const dir = scratchDirFor(env);
+  fs.writeFileSync(path.join(dir, '.baz-repos-rev.json'), 'org/a\norg/b\n');
+  const planPath = path.join(dir, '.baz-plan-rev.md');
+  const fire = () => {
+    fs.writeFileSync(planPath, '# Plan\n');
+    return runHook('plan-complete.js', {
+      session_id: 'rev',
+      cwd: process.cwd(),
+      tool_name: 'apply_patch',
+      tool_input: { file_path: planPath },
+    }, { env, vendor: 'codex' });
+  };
+
+  fire();
+  // Codex has no updatedInput, so the second fire's inline clause is what the
+  // agent passes. It must still name every repo searched this session.
+  const ctx = JSON.parse(fire().stdout).hookSpecificOutput.additionalContext;
+  const clause = ctx.match(/repoNames: (\[[^\]]*\])/);
+  assert.ok(clause, 'repoNames clause vanished on the second fire');
+  const repos = JSON.parse(clause[1]);
+  assert.ok(repos.includes('org/a') && repos.includes('org/b'), `got ${clause[1]}`);
+});
+
 test('repo lists in both namespaces are merged', ({ env }) => {
   const dir = scratchDirFor(env);
   const legacy = path.join('/tmp', '.baz-repos-rep1.json');

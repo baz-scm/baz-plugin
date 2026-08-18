@@ -356,14 +356,21 @@ function collectRepos(sid, cwd) {
   const cwdRepo = repoFromCwd(cwd);
   if (cwdRepo) seen.add(cwdRepo);
 
+  // Read, never consume. This hook fires more than once for one plan (the
+  // Claude Code plan-file write and then ExitPlanMode, and again on every
+  // revision on any platform), and the parked payload is overwritten by the
+  // last fire. Deleting the list here left every fire after the first with only
+  // the cwd repo, so a cross-repo plan uploaded with repoNames naming one repo.
+  // session-end.js unlinks the file when the session is terminal, and the
+  // 24h reaper takes it on Codex, where no event is terminal.
+  //
   // Both locations, for a session whose repos were partly accumulated by the
-  // pre-upgrade hooks: the sets are merged, then each consumed file removed.
-  for (const { path: p, content } of readAllScratchFiles('repos', sid, 'json')) {
+  // pre-upgrade hooks: the sets are merged.
+  for (const { content } of readAllScratchFiles('repos', sid, 'json')) {
     for (const line of content.split('\n')) {
       const name = line.trim();
       if (name) seen.add(name);
     }
-    safeUnlink(p);
   }
   return [...seen];
 }

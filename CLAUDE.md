@@ -26,7 +26,7 @@ hooks/
 
 skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
 skills/plan-with-baz/SKILL.md              Task skill: manual /baz:plan-with-baz planning command
-skills/get-plan-comments/SKILL.md              Task skill: /baz:get-plan-comments pulls a plan's review comments back
+skills/get-plan-comments/SKILL.md          Task skill: /baz:get-plan-comments pulls a plan's review comments back
 skills/review/SKILL.md                     Task skill: /baz:review diff review, cross-repo checks via Baz
 .cursor/rules/baz-codebase-exploration.mdc Reference skill, Cursor rules format (always-apply)
 ```
@@ -71,6 +71,8 @@ Everything the plugin writes goes in **a directory it owns, mode 0700** — `<os
 Because the path is computed, **the agent can't guess it**: `session-start.js` emits it on every platform ("If you write a plan file for this session, write it to …"), and `plan-with-baz` defers to that injected path. `plan-complete.js` matches the plan write by *basename*, so it keeps triggering wherever the directory resolves to.
 
 The plan is deleted on the normal path (`extractPlan()` unlinks it right after reading) **and** at session end, since the normal path only covers a hook that fires and gets that far.
+
+**The `repos` file is read, never consumed.** `collectRepos()` reads it and leaves it in place, unlike `extractPlan()`. `plan-complete.js` fires more than once for one plan (on Claude Code the plan-file write and then `ExitPlanMode`, and on any platform every revision), and the last fire overwrites the parked payload. When `collectRepos()` unlinked the file, every fire after the first saw only the cwd repo, so a plan that searched five repos uploaded with `repoNames` naming one. Cleanup belongs to `session-end.js` and the reaper, which already cover this file. Two tests fire the hook twice and assert the full set survives.
 
 `session-end.js` does three things: unlinks this session's `plan` / `plan-pending` / `repos` / `tokens` files **when the event is terminal**, consumes the counter file, and reaps any `.baz-*` scratch file older than 24h (in the scratch directory and in `/tmp`, so leftovers from versions before the private directory don't outlive the upgrade). **The reaper skips the running session's own files** — on Codex it fires every turn, so a session that has been planning for more than a day would otherwise reap its own live plan.
 
