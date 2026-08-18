@@ -132,3 +132,11 @@ A hook instruction telling you to call `update_plan` is a prompt to **ask**, not
 Per-platform mechanics:
 - **Claude Code and Codex**: a PostToolUse hook watches the plan-file write and injects the upload question along with the authoritative values.
 - **Cursor**: no PostToolUse prompt is delivered (Cursor drops `additionalContext` from non-MCP-tool hooks), so raise the question yourself right after the file write. Token counts aren't available client-side and should be omitted.
+
+## Step 5: Link the PR back to the plan
+
+Once implementation is done and a PR is open for a plan that was uploaded, call `mcp__baz__link_plan_to_pr` with the PR's `repository` (`owner/repo`) and `prNumber`. This marks the plan implemented, links the plan to the PRs it produced, and shows the plan on the PR page, so a reviewer can read the reasoning the change came from.
+
+- On Claude Code the hook fills `planId` with this session's id. Elsewhere, pass `planId` yourself — it is the UUID in the plan's URL.
+- The link is on the plan, not on one version: later plan versions stay linked, so call it once per PR. If the plan produces more PRs, call it again for each.
+- Only for plans that were uploaded. If the user declined the upload, there is nothing to link and this step is skipped.

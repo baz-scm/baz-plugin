@@ -21,7 +21,25 @@ const HOOKS = path.join(__dirname, '..', 'hooks');
 const HOOK_IO = path.join(HOOKS, 'hook-io.js');
 
 let passed = 0;
+let skipped = 0;
 const failures = [];
+
+// Ownership and mode assertions are POSIX-only. On a host without getuid()
+// (Windows) the scratch directory is chosen and judged by different rules, and
+// chmod does not mean what these tests assert, so they are skipped rather than
+// failed. CI runs Linux; this only matters to someone running them locally.
+const POSIX = typeof process.getuid === 'function';
+
+function skip(name, why) {
+  skipped++;
+  console.log(`  skip ${name} (${why})`);
+}
+
+// A test whose assertions only hold on POSIX.
+function posixTest(name, fn) {
+  if (!POSIX) return skip(name, 'POSIX only');
+  return test(name, fn);
+}
 
 function test(name, fn) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'baz-test-tmp-'));
@@ -101,6 +119,82 @@ test('session-start emits correlation args and a plan path', ({ env }) => {
   assert.match(ctx, /\.baz-plan-s1\.md/);
 });
 
+test('plan-complete inlines the full call shape for Codex', ({ env }) => {
+  const dir = scratchDirFor(env);
+  fs.writeFileSync(path.join(dir, '.baz-plan-shape.md'), '# Plan\n\nbody\n');
+  fs.writeFileSync(path.join(dir, '.baz-repos-shape.json'), 'org/one\norg/two\n');
+  const out = runHook('plan-complete.js', {
+    session_id: 'shape',
+    cwd: process.cwd(),
+    tool_name: 'Write',
+    tool_input: { file_path: path.join(dir, '.baz-plan-shape.md') },
+  }, { env, vendor: 'codex' });
+  const parsed = JSON.parse(out.stdout);
+  assert.strictEqual(parsed.hookSpecificOutput.hookEventName, 'PostToolUse');
+  const ctx = parsed.hookSpecificOutput.additionalContext;
+  // Codex has no updatedInput, so the arguments must be inline and complete.
+  assert.match(ctx, /sessionId: "shape"/, 'no inline sessionId');
+  assert.match(ctx, /content: "# Plan/, 'no inline content');
+  // The session's own repo is included alongside the ones searched, so match on
+  // the clause containing both accumulated names rather than an exact array.
+  const repoClause = ctx.match(/repoNames: (\[[^\]]*\])/);
+  assert.ok(repoClause, 'no repoNames clause');
+  const repos = JSON.parse(repoClause[1]);
+  assert.ok(repos.includes('org/one') && repos.includes('org/two'), `got ${repoClause[1]}`);
+  assert.match(ctx, /mcp__baz__update_plan/);
+  assert.match(ctx, /ASK THE USER/, 'consent gate missing');
+});
+
+test('plan-complete omits metadata it does not have', ({ env }) => {
+  const dir = scratchDirFor(env);
+  fs.writeFileSync(path.join(dir, '.baz-plan-nometa.md'), '# Plan\n');
+  const out = runHook('plan-complete.js', {
+    session_id: 'nometa',
+    cwd: '/nonexistent-not-a-repo',
+    tool_name: 'Write',
+    tool_input: { file_path: path.join(dir, '.baz-plan-nometa.md') },
+  }, { env, vendor: 'codex' });
+  const ctx = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /sessionId: "nometa"/);
+  // No transcript, no tally, no resolvable repo: those clauses must be absent
+  // rather than present with an empty or null value.
+  assert.doesNotMatch(ctx, /tokensUsed/, 'invented a token count');
+  assert.doesNotMatch(ctx, /modelId/, 'invented a model id');
+  assert.doesNotMatch(ctx, /repoNames/, 'invented repo names');
+});
+
+test('plan-complete parks the payload for Claude Code instead of inlining', ({ env }) => {
+  const dir = scratchDirFor(env);
+  fs.writeFileSync(path.join(dir, '.baz-plan-cc.md'), '# Plan\n\nsecret design\n');
+  const out = runHook('plan-complete.js', {
+    session_id: 'cc',
+    cwd: process.cwd(),
+    tool_name: 'Write',
+    tool_input: { file_path: path.join(dir, '.baz-plan-cc.md') },
+  }, { env, vendor: 'claude-code' });
+  const ctx = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /NO arguments at all/, 'should tell the agent to pass nothing');
+  assert.doesNotMatch(ctx, /secret design/, 'plan text should not re-enter context');
+  const parked = JSON.parse(fs.readFileSync(path.join(dir, '.baz-plan-pending-cc.json'), 'utf8'));
+  assert.strictEqual(parked.content, '# Plan\n\nsecret design\n');
+  assert.strictEqual(fs.lstatSync(path.join(dir, '.baz-plan-pending-cc.json')).mode & 0o777, 0o600);
+});
+
+test('a non-finite token count is ignored, never serialized as null', ({ env }) => {
+  const dir = scratchDirFor(env);
+  fs.writeFileSync(path.join(dir, '.baz-tokens-inf.json'),
+    '{"input_tokens":1e400,"output_tokens":5,"model_id":"m"}');
+  fs.writeFileSync(path.join(dir, '.baz-plan-inf.md'), '# p\n');
+  const out = runHook('plan-complete.js', {
+    conversation_id: 'inf',
+    workspace_roots: [process.cwd()],
+    tool_name: 'edit_file',
+    tool_input: { path: path.join(dir, '.baz-plan-inf.md') },
+  }, { env, vendor: 'cursor' });
+  const ctx = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+  assert.doesNotMatch(ctx, /null/, 'a non-finite count reached the instruction as null');
+});
+
 test('plan-complete emits the upload instruction', ({ env }) => {
   const dir = scratchDirFor(env);
   fs.writeFileSync(path.join(dir, '.baz-plan-s1.md'), '# Plan\n\nbody\n');
@@ -133,6 +227,51 @@ test('plan-attach fills a no-argument update_plan call', ({ env }) => {
   assert.strictEqual(updated.content, '# parked\n');
 });
 
+test('plan-attach copies every parked field and keeps the agent\'s own', ({ env }) => {
+  const dir = scratchDirFor(env);
+  fs.writeFileSync(path.join(dir, '.baz-plan-pending-full.json'), JSON.stringify({
+    content: '# parked\n',
+    tokensUsed: { input_tokens: 7, output_tokens: 8 },
+    modelId: 'claude-x',
+    repoNames: ['org/a', 'org/b'],
+    agentVendor: 'claude-code',
+  }));
+  const out = runHook('plan-attach.js', {
+    session_id: 'full',
+    tool_name: 'mcp__baz__update_plan',
+    tool_input: { somethingTheAgentSet: 'keep me' },
+  }, { env });
+  const updated = JSON.parse(out.stdout).hookSpecificOutput.updatedInput;
+  assert.strictEqual(updated.sessionId, 'full');
+  assert.strictEqual(updated.content, '# parked\n');
+  assert.deepStrictEqual(updated.tokensUsed, { input_tokens: 7, output_tokens: 8 });
+  assert.strictEqual(updated.modelId, 'claude-x');
+  assert.deepStrictEqual(updated.repoNames, ['org/a', 'org/b']);
+  assert.strictEqual(updated.agentVendor, 'claude-code');
+  assert.strictEqual(updated.somethingTheAgentSet, 'keep me', 'dropped the agent\'s own field');
+});
+
+test('plan-attach fills planId for link_plan_to_pr, keeping repository and prNumber', ({ env }) => {
+  const out = runHook('plan-attach.js', {
+    session_id: 'link1',
+    tool_name: 'mcp__baz__link_plan_to_pr',
+    tool_input: { repository: 'org/repo', prNumber: 42 },
+  }, { env });
+  const updated = JSON.parse(out.stdout).hookSpecificOutput.updatedInput;
+  assert.strictEqual(updated.planId, 'link1');
+  assert.strictEqual(updated.repository, 'org/repo');
+  assert.strictEqual(updated.prNumber, 42);
+});
+
+test('plan-attach leaves a link call that already carries its own planId', ({ env }) => {
+  const out = runHook('plan-attach.js', {
+    session_id: 'link2',
+    tool_name: 'mcp__baz__link_plan_to_pr',
+    tool_input: { planId: 'someone-elses-plan', repository: 'org/repo', prNumber: 7 },
+  }, { env });
+  assert.strictEqual(out.stdout, '', 'overwrote an explicit planId');
+});
+
 test('plan-attach passes through a call that already has content', ({ env }) => {
   const out = runHook('plan-attach.js', {
     session_id: 's1',
@@ -146,7 +285,7 @@ test('plan-attach passes through a call that already has content', ({ env }) => 
 
 console.log('\nscratch directory: private, or nothing');
 
-test('resolves to a 0700 directory we own', ({ env }) => {
+posixTest('resolves to a 0700 directory we own', ({ env }) => {
   const dir = scratchDirFor(env);
   assert.ok(dir, 'no scratch dir');
   const st = fs.lstatSync(dir);
@@ -155,19 +294,19 @@ test('resolves to a 0700 directory we own', ({ env }) => {
   assert.strictEqual(st.uid, process.getuid());
 });
 
-test('rejects a symlink planted at the scratch path', ({ tmp, home, env }) => {
+posixTest('rejects a symlink planted at the scratch path', ({ tmp, home, env }) => {
   fs.symlinkSync(os.tmpdir(), path.join(tmp, `.baz-${process.getuid()}`));
   const dir = scratchDirFor(env);
   assert.ok(dir === null || dir.startsWith(home), `used ${dir}`);
 });
 
-test('rejects a regular file planted at the scratch path', ({ tmp, home, env }) => {
+posixTest('rejects a regular file planted at the scratch path', ({ tmp, home, env }) => {
   fs.writeFileSync(path.join(tmp, `.baz-${process.getuid()}`), 'x');
   const dir = scratchDirFor(env);
   assert.ok(dir === null || dir.startsWith(home), `used ${dir}`);
 });
 
-test('tightens a too-permissive directory it owns', ({ tmp, env }) => {
+posixTest('tightens a too-permissive directory it owns', ({ tmp, env }) => {
   const target = path.join(tmp, `.baz-${process.getuid()}`);
   fs.mkdirSync(target);
   fs.chmodSync(target, 0o777);
@@ -175,13 +314,13 @@ test('tightens a too-permissive directory it owns', ({ tmp, env }) => {
   assert.strictEqual(fs.lstatSync(target).mode & 0o777, 0o700);
 });
 
-test('fails closed when no candidate is usable', ({ tmp, home, env }) => {
+posixTest('fails closed when no candidate is usable', ({ tmp, home, env }) => {
   fs.chmodSync(tmp, 0o500);
   fs.chmodSync(home, 0o500);
   assert.strictEqual(scratchDirFor(env), null);
 });
 
-test('session-start says nothing about a plan file when it fails closed', ({ tmp, home, env }) => {
+posixTest('session-start says nothing about a plan file when it fails closed', ({ tmp, home, env }) => {
   fs.chmodSync(tmp, 0o500);
   fs.chmodSync(home, 0o500);
   const ctx = context(env);
@@ -358,7 +497,7 @@ test('a hostile session id cannot touch files outside the scratch dir', ({ env }
 
 // --- report -----------------------------------------------------------------
 
-console.log(`\n${passed} passed, ${failures.length} failed`);
+console.log(`\n${passed} passed, ${failures.length} failed, ${skipped} skipped`);
 if (failures.length) {
   for (const f of failures) console.error(`\n${f.name}\n${f.err.stack}`);
   process.exit(1);

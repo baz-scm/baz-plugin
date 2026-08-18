@@ -264,8 +264,11 @@ function extractCursorUsage(sid) {
       !parsed ||
       typeof parsed !== 'object' ||
       Array.isArray(parsed) ||
-      typeof parsed.input_tokens !== 'number' ||
-      typeof parsed.output_tokens !== 'number'
+      // Number.isFinite, not typeof: JSON.parse('1e400') yields Infinity, whose
+      // typeof is 'number' and which JSON.stringify writes back as null — the
+      // plan would carry `tokensUsed: {"input_tokens": null}`.
+      !Number.isFinite(parsed.input_tokens) ||
+      !Number.isFinite(parsed.output_tokens)
     ) continue;
     input_tokens += parsed.input_tokens;
     output_tokens += parsed.output_tokens;

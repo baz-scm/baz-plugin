@@ -59,13 +59,23 @@ function readHookInput() {
 // treats as "nothing to do".
 const SAFE_SESSION = /^[A-Za-z0-9._-]{1,128}$/;
 
-function sessionIdOf(payload) {
-  const raw = (payload && (payload.session_id || payload.conversation_id)) || '';
-  if (typeof raw !== 'string' || !SAFE_SESSION.test(raw)) return '';
+function isSafeSessionId(raw) {
+  if (typeof raw !== 'string' || !SAFE_SESSION.test(raw)) return false;
   // Belt and braces: the allowlist already excludes separators, but a bare
   // '.' or '..' would pass it and still resolve to a directory.
-  if (raw === '.' || raw === '..') return '';
-  return raw;
+  return raw !== '.' && raw !== '..';
+}
+
+// Each candidate is validated on its own rather than picking the first truthy
+// one: a payload carrying a malformed `session_id` alongside a valid
+// `conversation_id` would otherwise resolve to '' and silently switch this
+// session's plan handling off.
+function sessionIdOf(payload) {
+  if (!payload) return '';
+  for (const raw of [payload.session_id, payload.conversation_id]) {
+    if (isSafeSessionId(raw)) return raw;
+  }
+  return '';
 }
 
 // --- Scratch directory ------------------------------------------------------
