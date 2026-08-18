@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/baz-scm/baz-plugin/compare/v0.12.0...v0.12.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* **hooks:** private scratch dir, Codex data loss, and hook tests ([#34](https://github.com/baz-scm/baz-plugin/issues/34)) ([90eb48a](https://github.com/baz-scm/baz-plugin/commit/90eb48af62edec0b500ec1ce0193f3e2fd122cc0))
+
 ## [0.12.0](https://github.com/baz-scm/baz-plugin/compare/v0.11.0...v0.12.0) (2026-08-18)
 
 
