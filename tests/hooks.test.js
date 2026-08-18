@@ -375,6 +375,31 @@ test('token tallies in both namespaces are summed', ({ env }) => {
   }
 });
 
+test('the comments command is named the way each host invokes it', ({ env }) => {
+  const dir = scratchDirFor(env);
+  // Emitting `/baz:get-plan-comments` everywhere handed Codex and Cursor users a
+  // command their host does not have. README.md is the source of truth.
+  const cases = [
+    ['claude-code', '`/baz:get-plan-comments`'],
+    ['codex', 'the `get-plan-comments` skill'],
+    ['cursor', '`/get-plan-comments`'],
+  ];
+  for (const [vendor, expected] of cases) {
+    const sid = `cmd-${vendor}`;
+    fs.writeFileSync(path.join(dir, `.baz-plan-${sid}.md`), '# Plan\n');
+    const payload = vendor === 'cursor'
+      ? { conversation_id: sid, workspace_roots: [process.cwd()],
+          tool_name: 'edit_file', tool_input: { path: path.join(dir, `.baz-plan-${sid}.md`) } }
+      : { session_id: sid, cwd: process.cwd(),
+          tool_name: 'Write', tool_input: { file_path: path.join(dir, `.baz-plan-${sid}.md`) } };
+    const out = runHook('plan-complete.js', payload, { env, vendor });
+    const ctx = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+    assert.ok(ctx.length > 0, `${vendor}: empty instruction`);
+    assert.ok(ctx.includes(`they can use ${expected} any time`),
+      `${vendor}: wrong invocation in ${ctx.slice(-160)}`);
+  }
+});
+
 test('the repo list survives a second fire on Claude Code', ({ env }) => {
   const dir = scratchDirFor(env);
   fs.writeFileSync(path.join(dir, '.baz-repos-twice.json'), 'org/a\norg/b\n');

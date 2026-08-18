@@ -461,9 +461,20 @@ const callShape = attachesLocally
       repoNames.length > 0 &&
         `Also pass \`repoNames: ${JSON.stringify(repoNames)}\` — this is the set of` +
         ` repositories relevant to this plan (the session's root repo plus every` +
-        ` repo searched via baz MCP tools). Pass the array exactly as given so the` +
-        ` plan is discoverable under each of these repos.`,
+        ` repo you named in a baz MCP tool call; repos that an org-wide` +
+        ` \`repo_search\` merely returned are not included). Pass the array exactly` +
+        ` as given so the plan is discoverable under each of these repos.`,
     ];
+
+// The comments command is invoked differently per platform (see the table in
+// README.md), so the shared instruction cannot name one syntax. Emitting
+// `/baz:get-plan-comments` everywhere handed Codex and Cursor users a command
+// their host does not have.
+const commentsCommand =
+  vendor === 'claude-code' ? '`/baz:get-plan-comments`' :
+  vendor === 'cursor'      ? '`/get-plan-comments`' :
+  vendor === 'codex'       ? 'the `get-plan-comments` skill' :
+  'the `get-plan-comments` command';
 
 const supersedes = attachesLocally
   ? `the attached content supersedes any earlier draft`
@@ -486,8 +497,8 @@ const instruction = [
     ` you were given. If that answer was yes, call the tool again now, ${supersedes}.` +
     ` Identical content is deduped server-side, so a redundant call costs nothing.`,
   `The tool result contains a shareable plan link — include that link in your` +
-    ` reply so the user can open the uploaded plan, and tell them they can run` +
-    ` \`/baz:get-plan-comments\` any time to pull the plan's comments back into this` +
+    ` reply so the user can open the uploaded plan, and tell them they can use` +
+    ` ${commentsCommand} any time to pull the plan's comments back into this` +
     ` session.`,
 ].filter(Boolean).join(' ');
 
