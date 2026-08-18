@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/baz-scm/baz-plugin/compare/v0.11.0...v0.12.0) (2026-08-18)
+
+
+### Features
+
+* **plan:** CR-4980 link the plan to the PR that implements it ([#30](https://github.com/baz-scm/baz-plugin/issues/30)) ([4cb791c](https://github.com/baz-scm/baz-plugin/commit/4cb791cd33b7d67f3f120c904ce954389965fcec))
+
 ## [0.11.0](https://github.com/baz-scm/baz-plugin/compare/v0.10.0...v0.11.0) (2026-08-17)
 
 
