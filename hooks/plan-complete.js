@@ -50,10 +50,7 @@ failSoft();
 
 const SAFE_VENDOR = /^[A-Za-z0-9._-]{1,64}$/;
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
-// A `repository` argument may be the short leaf name (`baz`) as well as the full
-// `owner/repo`; baz-codebase-exploration documents both, so requiring the slash
-// dropped short-form repos from the upload. The character class is what makes a
-// name safe to interpolate, not the shape.
+// A `repository` argument is the short leaf name (`baz`) or the full `owner/repo`.
 const SAFE_REPO_ARG = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)?$/;
 
 const vendorArg = process.argv[2] || '';

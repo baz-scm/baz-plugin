@@ -451,10 +451,7 @@ test('a hostile repo name never reaches the upload', ({ env }) => {
   // post-tool-use.js appends whatever the agent passed as `repository`, and the
   // agent's arguments can be shaped by untrusted content it read. Anything
   // outside the safe character class is dropped before it can reach the prompt.
-  //
-  // `baz` is here because baz-codebase-exploration documents the short leaf name
-  // as a valid `repository` argument. Requiring a slash dropped it, and the plan
-  // uploaded undiscoverable under a repo the session had actually searched.
+  // `baz` is a documented short leaf name and must survive.
   fs.writeFileSync(path.join(dir, '.baz-repos-hostile.json'), [
     'org/good',
     'baz',
