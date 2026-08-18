@@ -446,6 +446,29 @@ test('the repo list survives a second fire on Claude Code', ({ env }) => {
   assert.ok(sent.repoNames.includes('org/b'), `got ${JSON.stringify(sent.repoNames)}`);
 });
 
+test('a repository value carrying a newline cannot add a repo', ({ env }) => {
+  const dir = scratchDirFor(env);
+  // Producer to consumer, through both real hooks: the repos file is one name per
+  // line, so a value with a newline in it would arrive downstream as two names.
+  runHook('post-tool-use.js', {
+    session_id: 'nl',
+    tool_name: 'mcp__baz__remote_grep',
+    tool_input: { repository: 'org/good\nevil/other', sessionRepository: 'org/session' },
+  }, { env });
+  fs.writeFileSync(path.join(dir, '.baz-plan-nl.md'), '# Plan\n');
+  const out = runHook('plan-complete.js', {
+    session_id: 'nl',
+    cwd: '/nonexistent-not-a-repo',
+    tool_name: 'Write',
+    tool_input: { file_path: path.join(dir, '.baz-plan-nl.md') },
+  }, { env, vendor: 'codex' });
+  const ctx = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+  const clause = ctx.match(/repoNames: (\[[^\]]*\])/);
+  assert.ok(clause, 'the clean name was dropped too');
+  assert.deepStrictEqual(JSON.parse(clause[1]), ['org/session']);
+  assert.doesNotMatch(ctx, /evil\/other/, 'a repo nobody searched reached the upload');
+});
+
 test('a hostile repo name never reaches the upload', ({ env }) => {
   const dir = scratchDirFor(env);
   // post-tool-use.js appends whatever the agent passed as `repository`, and the
