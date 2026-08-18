@@ -38,18 +38,13 @@ function coerceToolInput(raw) {
   return null;
 }
 
+// The file is one name per line, so a value carrying a newline would split into
+// two names downstream and attribute the plan to a repo nobody searched.
+const isOneLine = v => typeof v === 'string' && v !== '' && !/[\r\n]/.test(v);
+
 const toolInput = coerceToolInput(d.tool_input);
 if (toolInput) {
-  const repos = [];
-  if (typeof toolInput.repository === 'string' && toolInput.repository) {
-    repos.push(toolInput.repository);
-  }
-  if (
-    typeof toolInput.sessionRepository === 'string' &&
-    toolInput.sessionRepository
-  ) {
-    repos.push(toolInput.sessionRepository);
-  }
+  const repos = [toolInput.repository, toolInput.sessionRepository].filter(isOneLine);
   if (repos.length > 0) {
     const reposPath = scratchPath('repos', sessionId, 'json');
     if (reposPath) {
