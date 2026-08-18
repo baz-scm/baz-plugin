@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.0](https://github.com/baz-scm/baz-plugin/compare/v0.12.1...v0.13.0) (2026-08-18)
+
+
+### Features
+
+* **plan:** restore cross-repo attribution and tighten the plan schema ([#37](https://github.com/baz-scm/baz-plugin/issues/37)) ([cc60fc4](https://github.com/baz-scm/baz-plugin/commit/cc60fc4d63f851121f9cfa126968106dad758e18))
+
+
+### Bug Fixes
+
+* **hooks:** keep short-form repo names on the plan upload ([#39](https://github.com/baz-scm/baz-plugin/issues/39)) ([6aeb00a](https://github.com/baz-scm/baz-plugin/commit/6aeb00a7f17e6917eb5a776409cb7d3b858d683d))
+
 ## [0.12.1](https://github.com/baz-scm/baz-plugin/compare/v0.12.0...v0.12.1) (2026-08-18)
 
 
