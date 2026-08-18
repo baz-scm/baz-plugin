@@ -352,24 +352,30 @@ test('a legacy plan is consumed and reaches the instruction', ({ env }) => {
   }
 });
 
-test('token tallies in both namespaces are summed', ({ env }) => {
+test('token tallies in both namespaces are summed, and survive a revision', ({ env }) => {
   const dir = scratchDirFor(env);
   const legacy = path.join('/tmp', '.baz-tokens-tok1.json');
   fs.writeFileSync(path.join(dir, '.baz-tokens-tok1.json'),
     JSON.stringify({ input_tokens: 10, output_tokens: 20, model_id: 'new' }));
   fs.writeFileSync(legacy, JSON.stringify({ input_tokens: 1, output_tokens: 2, model_id: 'old' }));
-  fs.writeFileSync(path.join(dir, '.baz-plan-tok1.md'), '# p\n');
-  try {
-    const out = runHook('plan-complete.js', {
+  const fire = () => {
+    fs.writeFileSync(path.join(dir, '.baz-plan-tok1.md'), '# p\n');
+    return JSON.parse(runHook('plan-complete.js', {
       conversation_id: 'tok1',
       workspace_roots: [process.cwd()],
       tool_name: 'edit_file',
       tool_input: { path: path.join(dir, '.baz-plan-tok1.md') },
-    }, { env, vendor: 'cursor' });
-    const ctx = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
-    assert.match(ctx, /"input_tokens":11/, 'tallies not summed');
-    assert.match(ctx, /"output_tokens":22/);
-    assert.ok(!fs.existsSync(legacy), 'legacy tally not consumed');
+    }, { env, vendor: 'cursor' }).stdout).hookSpecificOutput.additionalContext;
+  };
+  try {
+    assert.match(fire(), /"input_tokens":11/, 'tallies not summed');
+    // The tally is cumulative for the session, so a revised plan must still
+    // report the whole of it. Consuming the files on read left the second fire
+    // reporting only later turns, or omitting tokensUsed entirely. Cleanup is
+    // session-end.js and the reaper, which cover both namespaces.
+    const second = fire();
+    assert.match(second, /"input_tokens":11/, 'revision lost the tally');
+    assert.match(second, /"output_tokens":22/);
   } finally {
     try { fs.unlinkSync(legacy); } catch {}
   }

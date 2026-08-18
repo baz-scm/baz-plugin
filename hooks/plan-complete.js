@@ -253,12 +253,17 @@ function extractCursorUsage(sid) {
   // A session that was mid-flight when the plugin was upgraded has turns tallied
   // in both places: the old /tmp file from the previous stop-token-tally.js and
   // the private one from this version. Both are summed, so the plan's token
-  // count covers the whole session, and both are consumed.
+  // count covers the whole session.
+  //
+  // Read, never consume, for the same reason as `collectRepos()`: this hook fires
+  // again on every plan revision, and unlinking the tally left the second fire
+  // reporting only the turns since the first, or omitting `tokensUsed` entirely.
+  // The tally is cumulative for the session, so re-reading it must see the whole
+  // file. session-end.js and the reaper own the cleanup.
   const found = readAllScratchFiles('tokens', sid, 'json');
   if (found.length === 0) return null;
   let input_tokens = 0, output_tokens = 0, modelId = null, sawTokens = false;
-  for (const { path: p, content } of found) {
-    safeUnlink(p);
+  for (const { content } of found) {
     const parsed = tryParseJson(content);
     if (
       !parsed ||
