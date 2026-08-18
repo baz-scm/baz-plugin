@@ -52,6 +52,8 @@ All four live under `skills/` and ship to all three platforms with no manifest c
 
 `Affected repos` is always emitted, one short line per repo, and is a list of repos only. It restores the blast radius that `d9d33af` removed along with the old `Affected repos & files` catalogue, without restoring the catalogue. Do not let it grow a `path` column.
 
+**The section budgets are word counts and item caps, not "be concise".** A `Steps` entry is capped at 25 words rather than "one sentence", because a sentence cap is gamed: a real plan complied with it by writing a 55-word step chaining six clauses with commas. The same review of that plan is why the Before/After table keeps at most one `(unchanged)` row, why only the After cell carries a marker, and why the diagram is drawn only when it answers something the table does not. Do not relax these back into prose advice.
+
 The schema is two layers split by a `---` rule: `Why` / `The change` / `Affected repos` / `Decisions` / `Open questions` are what a reviewer approves on, and `Steps` / `Verification` below the rule are what an implementer follows. The split is what keeps a plan reviewable — file paths belong to the steps that need them, never gathered into a catalogue of their own, and a change repeated across many sites is described once as a pattern with a few representative paths. Renderers should treat the lower layer as collapsible.
 
 ## Hooks must never exit non-zero
