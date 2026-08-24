@@ -141,6 +141,10 @@ Consent is asked **once** per session. The hook fires on every plan-file write, 
 
 `update_plan` returns a shareable `https://<BACKEND_BASE_URL>/plans/<seriesId>` URL (`mcp/src/tools/update-plan.ts`), built the same way as the plan links in bff's notification handlers. `/plans/:seriesId` is the addressable route, so the link uses the **series** id, not the version id. The tool result tells the agent to surface the link, and the skills repeat it — without that, a successful upload reads as a dead end to the user.
 
+### Reading a plan back
+
+`get_plan` is the read side of that link: given the URL (or a bare series id) it returns the plan body, its status, its linked PRs and its version list. It is the only plan tool that takes a **user-supplied** id rather than the session's own, because the whole point is a plan somebody else wrote and pasted. That is why it stays out of the `plan-attach.js` PreToolUse matcher — filling in this session's id would silently read the wrong plan. Versions are positional and 1-indexed from the oldest, matching the plan page's `?version=`; a `?version=` in the pasted URL is honoured, and an explicit `version` argument beats it.
+
 ### Linking the PR back
 
 `link_plan_to_pr` closes the loop after implementation: it records that a PR implements the plan and flips the plan to `implemented`. The link is stored against the **series**, so every later plan version keeps it and the agent calls the tool once per PR rather than once per version. The PR is addressed by repository + number, not by a Baz PR id, so the call works immediately after the PR is opened — before the webhook that ingests it has landed, on any provider. Its consent posture is unlike `update_plan`'s: the plan is already published by the time there is a PR to link, so linking adds no new exposure and needs no separate ask.
