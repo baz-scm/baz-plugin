@@ -21,7 +21,7 @@ hooks/
   plan-attach.js                Claude Code only: PreToolUse on mcp__baz__update_plan and mcp__baz__link_plan_to_pr. Fills update_plan with the plan parked by plan-complete.js, so the plan is generated once instead of being re-typed into the call, and fills link_plan_to_pr's planId with the session id. Adds only what is missing, so a call that already carries content (Codex/Cursor) or its own planId passes through.
 
   hooks.json                    CC hooks: SessionStart + PreToolUse (mcp__baz__update_plan|mcp__baz__link_plan_to_pr) + PostToolUse (mcp__baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
-  hooks.codex.json              Codex hooks: SessionStart + PostToolUse (mcp__baz__ + apply_patch|Write|Edit) + Stop, ${CODEX_PLUGIN_DIR}
+  hooks.codex.json              Codex hooks: SessionStart + PostToolUse (mcp__baz__ + apply_patch|Write|Edit) + Stop, ${PLUGIN_ROOT}
   hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only). No session-end wiring — Cursor's validator does not accept `sessionEnd`; see Hook counter mechanics for the counter-file trade-off. ${CURSOR_PLUGIN_ROOT}
 
 skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
@@ -101,7 +101,7 @@ The counter file is **claimed by rename before it is read**. Codex fires `Stop` 
 | Platform | Session-start event | Tool event | Session-end event | Path variable |
 |---|---|---|---|---|
 | Claude Code | `SessionStart` | `PreToolUse` + `PostToolUse` | `SessionEnd` | `${CLAUDE_PLUGIN_ROOT}` |
-| Codex | `SessionStart` | `PostToolUse` | `Stop` | `${CODEX_PLUGIN_DIR}` |
+| Codex | `SessionStart` | `PostToolUse` | `Stop` | `${PLUGIN_ROOT}` |
 | Cursor | `sessionStart` | `postToolUse` | *(none — see below)* | `${CURSOR_PLUGIN_ROOT}` |
 
 **Cursor limitation — no counter/summary.** Cursor's hook validator does not recognize `sessionEnd`, and using its per-turn `stop` for `session-end.js` would wipe the counter mid-session. Rather than leak `.baz-counts-<sessionId>.json` forever with no reaper, `post-tool-use.js` short-circuits on Cursor payloads (detected via `conversation_id` without `session_id`). Cursor users get no tool-usage summary at session end — accepted as consistent with the "Cursor is best-effort" posture (see the Completion-trigger design section: no automated postToolUse nudge on Cursor either).

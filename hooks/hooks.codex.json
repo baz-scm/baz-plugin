@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/session-start.js\" codex"
+            "command": "node \"${PLUGIN_ROOT}/hooks/session-start.js\" codex"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/post-tool-use.js\""
+            "command": "node \"${PLUGIN_ROOT}/hooks/post-tool-use.js\""
           }
         ]
       },
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/plan-complete.js\" codex"
+            "command": "node \"${PLUGIN_ROOT}/hooks/plan-complete.js\" codex"
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CODEX_PLUGIN_DIR}/hooks/session-end.js\" codex"
+            "command": "node \"${PLUGIN_ROOT}/hooks/session-end.js\" codex"
           }
         ]
       }

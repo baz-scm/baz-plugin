@@ -647,6 +647,25 @@ test('a hostile session id cannot touch files outside the scratch dir', ({ env }
   }
 });
 
+console.log('\nmanifests: plugin hook commands use the host path variable');
+
+test('Codex hook commands use PLUGIN_ROOT, not CODEX_PLUGIN_DIR', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(HOOKS, 'hooks.codex.json'), 'utf8'));
+  const commands = [];
+  for (const entries of Object.values(manifest.hooks)) {
+    for (const group of entries) {
+      for (const hook of group.hooks || []) {
+        if (typeof hook.command === 'string') commands.push(hook.command);
+      }
+    }
+  }
+  assert.ok(commands.length > 0, 'no Codex hook commands');
+  for (const command of commands) {
+    assert.match(command, /\$\{PLUGIN_ROOT\}/, `missing PLUGIN_ROOT: ${command}`);
+    assert.doesNotMatch(command, /CODEX_PLUGIN_DIR/, `invented CODEX_PLUGIN_DIR: ${command}`);
+  }
+});
+
 // --- report -----------------------------------------------------------------
 
 console.log(`\n${passed} passed, ${failures.length} failed, ${skipped} skipped`);
