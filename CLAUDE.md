@@ -143,7 +143,7 @@ Consent is asked **once** per session. The hook fires on every plan-file write, 
 
 ### Reading a plan back
 
-`get_plan` is the read side of that link: given the URL (or a bare series id) it returns the plan body, its status, its linked PRs and its version list. It is the only plan tool that takes a **user-supplied** id rather than the session's own, because the whole point is a plan somebody else wrote and pasted. That is why it stays out of the `plan-attach.js` PreToolUse matcher — filling in this session's id would silently read the wrong plan. Versions are positional and 1-indexed from the oldest, matching the plan page's `?version=`; a `?version=` in the pasted URL is honoured, and an explicit `version` argument beats it.
+`get_plan` is the read side of that link: given the URL (or a bare series id) it returns the plan body, its status, its linked PRs and its version list. It is the only plan tool `plan-attach.js` does not fill in for, because the whole point is a plan somebody else wrote and pasted. That is why it stays out of the PreToolUse matcher — filling in this session's id would silently read the wrong plan. Versions are positional and 1-indexed from the oldest, matching the plan page's `?version=`; a `?version=` in the pasted URL is honoured, and an explicit `version` argument beats it.
 
 ### Linking the PR back
 
