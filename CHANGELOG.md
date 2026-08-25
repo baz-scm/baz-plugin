@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/baz-scm/baz-plugin/compare/v0.13.0...v0.13.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* **hooks:** point Codex hook commands at PLUGIN_ROOT ([#41](https://github.com/baz-scm/baz-plugin/issues/41)) ([e513d3f](https://github.com/baz-scm/baz-plugin/commit/e513d3fe1900dad74f40818ae7da77452e586890))
+
 ## [0.13.0](https://github.com/baz-scm/baz-plugin/compare/v0.12.1...v0.13.0) (2026-08-18)
 
 
