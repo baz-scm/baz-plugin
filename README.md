@@ -52,6 +52,57 @@ The `baz-codebase-exploration` skill teaches the agent when to use which, and to
 
 On top of those, the plugin ships three commands: `/baz:plan-with-baz` for planning a change, `/baz:get-plan-comments` for pulling a plan's review comments back into your session, and `/baz:review` for reviewing a change.
 
+## Datadog MCP environment selection
+
+Use named Datadog MCP servers so environment choice stays explicit:
+
+- `datadog-dev` for Dev
+- `datadog-prod` for Prod
+
+Honor environment requested by user. Select matching server before querying. Both servers may use `https://mcp.us5.datadoghq.com`, so endpoint alone does not prove environment. Verify in Datadog UI and query results:
+
+- Dev: Datadog links use `https://baz-dev.datadoghq.com`; typical tags include `project:dev` and `cluster_name:baz-eks-dev`.
+- Prod: Datadog links use `https://baz-prod.datadoghq.com`.
+
+### OpenAI Codex CLI
+
+Keep both entries in `~/.codex/config.toml`. Do not remove one to switch environments. If OAuth is stale or points at wrong account, re-login against the named server:
+
+```bash
+codex mcp logout datadog-dev
+codex mcp login datadog-dev
+```
+
+Use `datadog-prod` in both commands for Prod. Restart the Codex session after changing `~/.codex/config.toml`.
+
+### Claude Code
+
+Keep two named entries in Claude MCP config (commonly `.mcp.json`), or create them with equivalent Claude MCP commands. Example:
+
+```json
+{
+  "mcpServers": {
+    "datadog-dev": {
+      "type": "http",
+      "url": "https://mcp.us5.datadoghq.com"
+    },
+    "datadog-prod": {
+      "type": "http",
+      "url": "https://mcp.us5.datadoghq.com"
+    }
+  }
+}
+```
+
+Select `datadog-dev` or `datadog-prod` by requested environment. Verify Datadog site and environment tags as above; shared endpoint is not proof. If OAuth is stale or wrong, re-authenticate that named server using Claude Code's MCP re-login flow, or remove and re-add only that entry with the same name. For example, with Claude MCP commands:
+
+```bash
+claude mcp remove datadog-dev
+claude mcp add --transport http datadog-dev https://mcp.us5.datadoghq.com
+```
+
+Replace `datadog-dev` with `datadog-prod` for Prod. Restart or reconnect Claude Code after MCP config changes. Keep both entries; do not remove one to switch.
+
 ## Planning command
 
 The plugin also ships a manually-invoked planning command, **`/baz:plan-with-baz`**. Run it with a short description of what you want to build:
