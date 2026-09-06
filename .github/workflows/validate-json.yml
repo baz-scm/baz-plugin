@@ -25,3 +25,5 @@ jobs:
         # silent exit 0, so `node --check` alone has already let a real
         # regression through.
         run: node tests/hooks.test.js
+      - name: Validate vendor MCP boundaries
+        run: node tests/plugin-config.test.js
