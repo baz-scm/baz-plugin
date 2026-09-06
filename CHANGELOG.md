@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/baz-scm/baz-plugin/compare/v0.13.1...v0.13.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* CR-5210 isolate Codex MCP configuration ([#45](https://github.com/baz-scm/baz-plugin/issues/45)) ([1d46c81](https://github.com/baz-scm/baz-plugin/commit/1d46c8148d08db337ce3ccee03530f17b00af0fc))
+
 ## [0.13.1](https://github.com/baz-scm/baz-plugin/compare/v0.13.0...v0.13.1) (2026-08-25)
 
 
