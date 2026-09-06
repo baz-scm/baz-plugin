@@ -1,0 +1,6 @@
+{
+  "baz": {
+    "type": "http",
+    "url": "https://baz.co/mcp"
+  }
+}

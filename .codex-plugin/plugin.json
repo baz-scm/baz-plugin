@@ -11,16 +11,12 @@
   "license": "MIT",
   "skills": "./skills/",
   "hooks": "./hooks/hooks.codex.json",
-  "mcpServers": {
-    "baz": {
-      "type": "http",
-      "url": "https://baz.co/mcp"
-    }
-  },
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Baz",
     "shortDescription": "Indexed code search across your org.",
     "longDescription": "Baz adds three indexed search tools (repo_search, remote_grep, remote_file_search) for planning features against repos you haven't checked out. Includes the codebase-exploration skill that routes search to Baz and reads to gh / glab.",
+    "developerName": "Baz",
     "category": "Productivity",
     "capabilities": [
       "Instructions",
