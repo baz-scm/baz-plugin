@@ -11,7 +11,7 @@
   "license": "MIT",
   "skills": "./skills/",
   "hooks": "./hooks/hooks.codex.json",
-  "mcpServers": "./.codex.mcp.json",
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Baz",
     "shortDescription": "Indexed code search across your org.",
