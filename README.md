@@ -23,7 +23,7 @@ codex plugin marketplace add baz-scm/baz-plugin --ref main
 codex plugin add baz@baz
 ```
 
-Codex reads `.agents/plugins/marketplace.json`, which selects `packages/codex` as its self-contained plugin. Its manifest references `packages/codex/.mcp.json`, using Codex's bundled-server schema. This keeps Codex's `.mcp.json` out of repository root, where Claude reserves that name for project-scoped MCP configuration. Codex authenticates during plugin installation; Claude Code authenticates on first tool use.
+Codex reads `.agents/plugins/marketplace.json`, which selects this repository's Codex plugin. The plugin manifest alone references `.codex.mcp.json`, which uses Codex's bundled-server schema. Keep this file Codex-only: a root `.mcp.json` is Claude project configuration and uses a different schema. Codex authenticates during plugin installation; Claude Code authenticates on first tool use.
 
 ### Cursor
 

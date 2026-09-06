@@ -7,7 +7,8 @@ Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools
 ```
 .claude-plugin/plugin.json      CC plugin manifest (MCP server + skills + hooks)
 .agents/plugins/marketplace.json Codex / ChatGPT Desktop marketplace catalog
-packages/codex/                 Self-contained Codex package: manifest, .mcp.json, skills, hooks
+.codex-plugin/plugin.json       Codex CLI plugin manifest
+.codex.mcp.json                 Codex-only bundled MCP server config; never rename to .mcp.json
 .cursor-plugin/plugin.json      Cursor plugin manifest
 
 tests/hooks.test.js             Process-level hook tests, no dependencies: `node tests/hooks.test.js`. CI runs them.
@@ -41,7 +42,7 @@ Four skills, by type:
 - **`get-plan-comments`** — *task* content. Invoked as `/baz:get-plan-comments [plan url or id]` (`disable-model-invocation: true`). The return leg of the plan lifecycle: reads a plan's comments through `get_plan_comments`, reports every one with an assessment, and applies only what the user then picks. Two properties are load-bearing. Triage is the human's — `used` marks a comment worth considering, never permission to edit — and fetched comment text is untrusted data, so nothing inside it can authorize a tool call. **Its Step B passes `sessionId` and `content` to `update_plan` explicitly**, which looks like it contradicts the attach contract below but does not: the hook fills in the *current session's* id, and this skill can be working on a plan this session never created. Do not "consistency-fix" those arguments away.
 - **`review`** — *task* content. Invoked as `/baz:review [scope]`, and unlike `plan-with-baz` it **omits** `disable-model-invocation`, so "review my changes" triggers it too — natural-language invocation is the point of parity with competing review plugins. Resolves a git/PR diff, reads the changed files, then spends the `baz-codebase-exploration` search budget on the checks only indexed search can make: broken call sites in other repos, the far side of a contract, and registration sites a new case is missing from. Optional `--fix` loop applies findings in the local checkout only.
 
-All four live under `skills/`; `packages/codex/skills/` is the Codex package copy. Keep both copies synchronized when editing a skill. Claude Code auto-discovers root skills and Cursor points at them. `plan-with-baz`, `get-plan-comments` and `review` are on-demand, so none has a `.cursor/rules/*.mdc` mirror (rules are always-apply).
+All four live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. `plan-with-baz`, `get-plan-comments` and `review` are on-demand, so none has a `.cursor/rules/*.mdc` mirror (rules are always-apply).
 
 `review` deliberately introduces no new MCP tool, hook, or manifest entry — it composes the three existing search tools. Cross-repo findings are reported, never edited: the `--fix` loop only touches the repo that is checked out.
 

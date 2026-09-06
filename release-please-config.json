@@ -11,7 +11,7 @@
         },
         {
           "type": "json",
-          "path": "packages/codex/.codex-plugin/plugin.json",
+          "path": ".codex-plugin/plugin.json",
           "jsonpath": "$.version"
         },
         {
