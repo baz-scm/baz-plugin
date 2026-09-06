@@ -1,0 +1,17 @@
+{
+  "name": "baz",
+  "interface": {
+    "displayName": "Baz"
+  },
+  "plugins": [
+    {
+      "name": "baz",
+      "source": "./",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

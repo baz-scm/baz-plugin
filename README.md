@@ -14,15 +14,16 @@ Designed for planning features against repositories you haven't checked out loca
 /reload-plugins
 ```
 
-Claude Code reads `.claude-plugin/marketplace.json`, `.claude-plugin/plugin.json`, loads `skills/baz-codebase-exploration/SKILL.md`, and registers the Baz MCP server and hook. First time you use a Baz tool, your browser opens for OAuth (Descope) — log in with your Baz account.
+Claude Code reads `.claude-plugin/marketplace.json`, `.claude-plugin/plugin.json`, loads `skills/baz-codebase-exploration/SKILL.md`, and registers the Baz MCP server and hook. Its MCP server stays inline in the Claude manifest; this repository intentionally has no root `.mcp.json`, which Claude reserves for project-scoped MCP configuration. First time you use a Baz tool, your browser opens for OAuth (Descope) — log in with your Baz account.
 
 ### OpenAI Codex CLI
 
 ```bash
-codex plugin install baz-scm/baz-plugin@main
+codex plugin marketplace add baz-scm/baz-plugin --ref main
+codex plugin add baz@baz
 ```
 
-Codex reads `.codex-plugin/plugin.json` and wires the same skill + MCP server. OAuth flow is identical to Claude Code's.
+Codex reads `.agents/plugins/marketplace.json`, which selects this repository's Codex plugin. The plugin manifest alone references `.codex.mcp.json`, which uses Codex's bundled-server schema. Keep this file Codex-only: a root `.mcp.json` is Claude project configuration and uses a different schema. Codex authenticates during plugin installation; Claude Code authenticates on first tool use.
 
 ### Cursor
 

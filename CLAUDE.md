@@ -6,7 +6,9 @@ Plugin for Claude Code, Codex CLI, and Cursor that adds Baz indexed search tools
 
 ```
 .claude-plugin/plugin.json      CC plugin manifest (MCP server + skills + hooks)
+.agents/plugins/marketplace.json Codex / ChatGPT Desktop marketplace catalog
 .codex-plugin/plugin.json       Codex CLI plugin manifest
+.codex.mcp.json                 Codex-only bundled MCP server config; never rename to .mcp.json
 .cursor-plugin/plugin.json      Cursor plugin manifest
 
 tests/hooks.test.js             Process-level hook tests, no dependencies: `node tests/hooks.test.js`. CI runs them.
