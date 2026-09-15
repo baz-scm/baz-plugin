@@ -94,7 +94,7 @@ It reads every comment and prints one table — what each asks, whether the clai
 
 ## Review command
 
-**`/baz:review`** reviews your changes the way a reviewer with the whole org's code in front of them would. It resolves a diff, reads the changed files for context, then uses the Baz tools to check the change against repos you don't have checked out — the caller in another service that still passes the old signature, the consumer that reads a field you just renamed, the registration site your new enum value is missing from.
+**`/baz:review`** reviews your changes the way a reviewer with the whole org's code in front of them would. It resolves a diff, reads the changed files for context, pulls the review guidelines your org configured in Baz so it judges the change by your standards rather than the model's defaults — including the calibrations that say what *not* to flag — then uses the Baz tools to check the change against repos you don't have checked out — the caller in another service that still passes the old signature, the consumer that reads a field you just renamed, the registration site your new enum value is missing from.
 
 ```text
 /baz:review                        # everything not yet on the base branch
