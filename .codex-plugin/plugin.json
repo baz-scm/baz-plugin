@@ -1,6 +1,6 @@
 {
   "name": "baz",
-  "version": "0.13.2",
+  "version": "0.14.0",
   "description": "Baz codebase exploration — indexed search across your org's repos via MCP.",
   "author": {
     "name": "Baz",
