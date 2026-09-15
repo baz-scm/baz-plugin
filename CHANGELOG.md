@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/baz-scm/baz-plugin/compare/v0.13.2...v0.14.0) (2026-09-15)
+
+
+### Features
+
+* **review:** check changes against the org's Baz review guidelines ([#47](https://github.com/baz-scm/baz-plugin/issues/47)) ([199f300](https://github.com/baz-scm/baz-plugin/commit/199f3006ebe6b35c7ea7a013ec480a4bc21981ae))
+
 ## [0.13.2](https://github.com/baz-scm/baz-plugin/compare/v0.13.1...v0.13.2) (2026-09-06)
 
 
