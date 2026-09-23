@@ -22,7 +22,9 @@ hooks/
 
   plan-attach.js                Claude Code only: PreToolUse on mcp__baz__update_plan and mcp__baz__link_plan_to_pr. Fills update_plan with the plan parked by plan-complete.js, so the plan is generated once instead of being re-typed into the call, and fills link_plan_to_pr's planId with the session id. Adds only what is missing, so a call that already carries content (Codex/Cursor) or its own planId passes through.
 
-  hooks.json                    CC hooks: SessionStart + PreToolUse (mcp__baz__update_plan|mcp__baz__link_plan_to_pr) + PostToolUse (mcp__baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
+  pr-link-reminder.js           Claude Code only: PostToolUse on Bash. After `gh pr create` / `glab mr create` in a session whose counter shows an update_plan call, tells the agent to call mcp__baz__link_plan_to_pr with the repository and PR number parsed from the command output.
+
+  hooks.json                    CC hooks: SessionStart + PreToolUse (mcp__baz__update_plan|mcp__baz__link_plan_to_pr) + PostToolUse (mcp__baz__ + Write|Edit + Bash) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
   hooks.codex.json              Codex hooks: SessionStart + PostToolUse (mcp__baz__ + apply_patch|Write|Edit) + Stop, ${PLUGIN_ROOT}
   hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only). No session-end wiring — Cursor's validator does not accept `sessionEnd`; see Hook counter mechanics for the counter-file trade-off. ${CURSOR_PLUGIN_ROOT}
 

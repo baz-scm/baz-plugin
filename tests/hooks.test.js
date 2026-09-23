@@ -281,6 +281,50 @@ test('plan-attach passes through a call that already has content', ({ env }) => 
   assert.strictEqual(out.stdout, '', 'should not rewrite a populated call');
 });
 
+function runPrCreate(env, sessionId, stdout, command = 'gh pr create --fill') {
+  return runHook('pr-link-reminder.js', {
+    session_id: sessionId,
+    tool_name: 'Bash',
+    tool_input: { command },
+    tool_response: { stdout, stderr: '' },
+  }, { env });
+}
+
+test('pr-link-reminder asks to link a GitHub PR opened after a plan upload', ({ env }) => {
+  fs.writeFileSync(path.join(scratchDirFor(env), '.baz-counts-prl1.json'), 'repo_search\nupdate_plan\n');
+  const out = runPrCreate(env, 'prl1', 'https://github.com/baz-scm/baz-ai/pull/388\n');
+  const context = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+  assert.match(context, /link_plan_to_pr/);
+  assert.match(context, /repository: "baz-scm\/baz-ai"/);
+  assert.match(context, /prNumber: 388/);
+});
+
+test('pr-link-reminder reads a GitLab merge request URL', ({ env }) => {
+  fs.writeFileSync(path.join(scratchDirFor(env), '.baz-counts-prl2.json'), 'update_plan\n');
+  const out = runPrCreate(env, 'prl2', 'https://gitlab.com/group/sub/repo/-/merge_requests/12\n', 'glab mr create');
+  const context = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+  assert.match(context, /repository: "group\/sub\/repo"/);
+  assert.match(context, /prNumber: 12/);
+});
+
+test('pr-link-reminder still reminds when the PR URL is missing', ({ env }) => {
+  fs.writeFileSync(path.join(scratchDirFor(env), '.baz-counts-prl3.json'), 'update_plan\n');
+  const out = runPrCreate(env, 'prl3', '');
+  assert.match(JSON.parse(out.stdout).hookSpecificOutput.additionalContext, /link_plan_to_pr/);
+});
+
+test('pr-link-reminder stays quiet when the session uploaded no plan', ({ env }) => {
+  fs.writeFileSync(path.join(scratchDirFor(env), '.baz-counts-prl4.json'), 'repo_search\n');
+  const out = runPrCreate(env, 'prl4', 'https://github.com/org/repo/pull/1\n');
+  assert.strictEqual(out.stdout, '');
+});
+
+test('pr-link-reminder ignores Bash commands that do not open a PR', ({ env }) => {
+  fs.writeFileSync(path.join(scratchDirFor(env), '.baz-counts-prl5.json'), 'update_plan\n');
+  const out = runPrCreate(env, 'prl5', 'https://github.com/org/repo/pull/1\n', 'gh pr view 1');
+  assert.strictEqual(out.stdout, '');
+});
+
 // --- scratch directory ------------------------------------------------------
 
 console.log('\nscratch directory: private, or nothing');
