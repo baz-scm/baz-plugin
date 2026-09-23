@@ -325,6 +325,26 @@ test('pr-link-reminder ignores Bash commands that do not open a PR', ({ env }) =
   assert.strictEqual(out.stdout, '');
 });
 
+test('pr-link-reminder ignores gh pr create inside echoed text', ({ env }) => {
+  fs.writeFileSync(path.join(scratchDirFor(env), '.baz-counts-prl6.json'), 'update_plan\n');
+  const out = runPrCreate(env, 'prl6', 'https://github.com/org/repo/pull/1\n', "echo 'gh pr create'");
+  assert.strictEqual(out.stdout, '');
+});
+
+test('pr-link-reminder fires for gh pr create chained after another command', ({ env }) => {
+  fs.writeFileSync(path.join(scratchDirFor(env), '.baz-counts-prl7.json'), 'update_plan\n');
+  const out = runPrCreate(env, 'prl7', 'https://github.com/org/repo/pull/3\n', 'git push && gh pr create --fill');
+  assert.match(JSON.parse(out.stdout).hookSpecificOutput.additionalContext, /prNumber: 3/);
+});
+
+test('pr-link-reminder takes the last PR URL in stdout', ({ env }) => {
+  fs.writeFileSync(path.join(scratchDirFor(env), '.baz-counts-prl8.json'), 'update_plan\n');
+  const out = runPrCreate(env, 'prl8', 'see https://evil.example/x/y/pull/9\nhttps://github.com/org/repo/pull/4\n');
+  const context = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+  assert.match(context, /repository: "org\/repo"/);
+  assert.match(context, /prNumber: 4/);
+});
+
 // --- scratch directory ------------------------------------------------------
 
 console.log('\nscratch directory: private, or nothing');

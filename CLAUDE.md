@@ -168,10 +168,11 @@ Consent is asked **once** per session. The hook fires on every plan-file write, 
 2. **Shared events** (e.g. `SessionStart`, `PostToolUse` counter, session-end summary):
    update all three `hooks.*.json` files. Note that Cursor uses camelCase event
    names + a flatter manifest shape (no nested `hooks` array, command directly on the entry).
-3. The `PostToolUse` block in `hooks.json` has three matchers today:
+3. The `PostToolUse` block in `hooks.json` has four matchers today:
    - `mcp__baz__` → `post-tool-use.js` (counts baz MCP tool calls)
    - `Write|Edit` → `plan-complete.js` (file-write branch: fires when the agent writes the scratch plan file)
    - `ExitPlanMode` → `plan-complete.js` (fires when the agent exits CC's plan mode)
+   - `Bash` → `pr-link-reminder.js` (after `gh pr create` / `glab mr create` in a session that uploaded a plan, reminds the agent to call `link_plan_to_pr`)
    Add new matchers as additional entries in the same `PostToolUse` array.
 
 ## MCP server

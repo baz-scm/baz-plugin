@@ -12,7 +12,7 @@ const sessionId = sessionIdOf(d);
 if (!sessionId) process.exit(0);
 
 const command = d.tool_input && typeof d.tool_input.command === 'string' ? d.tool_input.command : '';
-if (!/\b(gh\s+pr|glab\s+mr)\s+create\b/.test(command)) process.exit(0);
+if (!/(?:^|[;&|(]|\n)\s*(?:gh\s+pr|glab\s+mr)\s+create\b/.test(command)) process.exit(0);
 
 const uploadedPlan = readAllScratchFiles('counts', sessionId, 'json')
   .some(({ content }) => content.split('\n').includes('update_plan'));
@@ -21,8 +21,8 @@ if (!uploadedPlan) process.exit(0);
 const response = d.tool_response;
 const output = typeof response === 'string'
   ? response
-  : [response && response.stdout, response && response.stderr].filter(s => typeof s === 'string').join('\n');
-const pr = output.match(/https?:\/\/[^\s/]+\/([\w.-]+(?:\/[\w.-]+)+?)\/(?:pull|-\/merge_requests)\/(\d+)/);
+  : (response && typeof response.stdout === 'string' ? response.stdout : '');
+const pr = [...output.matchAll(/https?:\/\/[^\s/]+\/([\w.-]+(?:\/[\w.-]+)+?)\/(?:pull|-\/merge_requests)\/(\d+)/g)].pop();
 
 const target = pr
   ? `\`repository: "${pr[1]}"\` and \`prNumber: ${pr[2]}\``
