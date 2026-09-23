@@ -145,6 +145,7 @@ What goes in:
 - Keep what changes the right answer: a constraint, a tradeoff you settled. Leave out what the implementer re-derives by opening the file.
 - Describe a repeated change once: name the pattern, give two or three representative paths, never one bullet per file.
 - No em dashes. Use a colon, a comma, or two sentences.
+- If the work has a ticket, named by the user or in the branch name, name its key in **Why** (`Ticket: CR-1234`). Baz links the plan to PRs that carry the same key.
 
 ## Step 3: Get approval
 
@@ -166,7 +167,9 @@ Per-platform mechanics:
 
 ## Step 5: Link the PR back to the plan
 
-Once implementation is done and a PR is open for a plan that was uploaded, call `mcp__baz__link_plan_to_pr` with the PR's `repository` (`owner/repo`) and `prNumber`. This marks the plan implemented, links the plan to the PRs it produced, and shows the plan on the PR page, so a reviewer can read the reasoning the change came from.
+When you open a PR for a plan that was uploaded, put the plan reference from the `update_plan` result (`PLAN-<n>`) and the ticket key, if there is one, in the PR description. Baz links the PR to the plan from either of these on its own, so the link holds even when the call below is missed.
+
+Once implementation is done and a PR is open for a plan that was uploaded, also call `mcp__baz__link_plan_to_pr` with the PR's `repository` (`owner/repo`) and `prNumber`. This marks the plan implemented, links the plan to the PRs it produced, and shows the plan on the PR page, so a reviewer can read the reasoning the change came from.
 
 - On Claude Code the hook fills `planId` with this session's id. Elsewhere, pass `planId` yourself — it is the UUID in the plan's URL.
 - The link is on the plan, not on one version: later plan versions stay linked, so call it once per PR. If the plan produces more PRs, call it again for each.
