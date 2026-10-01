@@ -55,13 +55,13 @@ On top of those, the plugin ships three commands: `/baz:plan-with-baz` for plann
 
 ## Planning command
 
-The plugin also ships a manually-invoked planning command, **`/baz:plan-with-baz`**. Run it with a short description of what you want to build:
+The plugin also ships a planning command, **`/baz:plan-with-baz`**. Run it with a short description of what you want to build:
 
 ```text
 /baz:plan-with-baz add rate limiting to the public API
 ```
 
-It explores the relevant repos with the Baz tools — including repos you haven't checked out — and writes a structured implementation plan you sign off on before any code is written. The agent stays read-only until you approve, so nothing in your working tree changes while it plans.
+It explores the relevant repos with the Baz tools — including repos you haven't checked out — and writes a structured implementation plan you sign off on before any code is written. The agent stays read-only until you approve, so nothing in your working tree changes while it plans. The agent can also load the skill on its own, so an automated process can run it too.
 
 | Platform | How to invoke |
 |---|---|
