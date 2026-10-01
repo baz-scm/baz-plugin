@@ -223,8 +223,23 @@ function isRenderablePath(p) {
   return typeof p === 'string' && p.length > 0 && !/[`\r\n\u0000-\u001f]/.test(p);
 }
 
+// Claude Code names plugin tools `mcp__plugin_baz_baz__<tool>`; elsewhere `mcp__baz__<tool>`.
+const BAZ_TOOL = /^mcp__(?:plugin_baz_)?baz__(.+)$/;
+function bazToolName(toolName) {
+  const m = typeof toolName === 'string' ? toolName.match(BAZ_TOOL) : null;
+  return m ? m[1] : null;
+}
+
+function bazToolRef(tool, vendor) {
+  return vendor === 'claude-code'
+    ? `\`mcp__plugin_baz_baz__${tool}\` (or \`mcp__baz__${tool}\`, whichever is in your tool list)`
+    : `\`mcp__baz__${tool}\``;
+}
+
 module.exports = {
   failSoft,
+  bazToolName,
+  bazToolRef,
   readHookInput,
   sessionIdOf,
   scratchDir,

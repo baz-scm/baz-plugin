@@ -20,6 +20,8 @@ The two-step structure is *your* procedure, not something the user needs to hear
 
 ## Which plan
 
+Claude Code may list the baz tools below as `mcp__plugin_baz_baz__<tool>` rather than `mcp__baz__<tool>`; they are the same tools.
+
 `mcp__baz__get_plan_comments` takes one argument, `planId` — the UUID in the plan URL `https://baz.co/plans/<planId>`.
 
 A plan pushed by an agent session is stored under that session's id, so the two are the same UUID:

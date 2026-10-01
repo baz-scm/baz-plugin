@@ -10,6 +10,7 @@ const {
   legacyPath,
   readScratchFile,
   readAllScratchFiles,
+  bazToolRef,
 } = require('./hook-io');
 
 failSoft();
@@ -428,7 +429,7 @@ const attachesLocally =
 // around it is the same either way.
 const callShape = attachesLocally
   ? [
-      `If — and only if — they say yes, call \`mcp__baz__update_plan\` exactly` +
+      `If — and only if — they say yes, call ${bazToolRef('update_plan', vendor)} exactly` +
         ` once with NO arguments at all. The session id, plan text, token` +
         ` counts, model id and repo names are attached automatically before the` +
         ` call is sent. Re-typing the plan wastes tokens and risks drift.`,
@@ -436,7 +437,7 @@ const callShape = attachesLocally
         ` the version that reaches Baz is always the file's current text.`,
     ]
   : [
-      `If — and only if — they say yes, call \`mcp__baz__update_plan\` exactly once` +
+      `If — and only if — they say yes, call ${bazToolRef('update_plan', vendor)} exactly once` +
         ` with \`sessionId: "${sessionId}"\` and` +
         ` \`content: ${JSON.stringify(planContent)}\` — this is the authoritative` +
         ` plan text (read from the tool input or the plan file on disk); pass the` +

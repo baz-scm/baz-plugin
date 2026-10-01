@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { failSoft, readHookInput, sessionIdOf, scratchPath } = require('./hook-io');
+const { failSoft, readHookInput, sessionIdOf, scratchPath, bazToolName } = require('./hook-io');
 
 failSoft();
 
@@ -15,7 +15,7 @@ if (!sessionId) process.exit(0);
 const isCursor = !d.session_id && d.conversation_id;
 
 if (!isCursor) {
-  const toolName = (d.tool_name || '').split('__baz__')[1] || d.tool_name;
+  const toolName = bazToolName(d.tool_name) || d.tool_name;
   const logPath = scratchPath('counts', sessionId, 'json');
   // Append-only: each call writes one line; avoids concurrent read/modify/write
   // race. Null means no private directory was established — write nothing.
