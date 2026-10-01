@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0](https://github.com/baz-scm/baz-plugin/compare/v0.14.0...v0.15.0) (2026-10-01)
+
+
+### Features
+
+* **plan-with-baz:** alow the agent invoke the skill ([#52](https://github.com/baz-scm/baz-plugin/issues/52)) ([70f97a6](https://github.com/baz-scm/baz-plugin/commit/70f97a6fd9f9e934f9f91105fd6e0049012cc34d))
+* **plan-with-baz:** carry the plan reference and ticket key into PRs ([#49](https://github.com/baz-scm/baz-plugin/issues/49)) ([dc76faf](https://github.com/baz-scm/baz-plugin/commit/dc76fafb94a3dd8fff06a931852919651b0f0312))
+
 ## [0.14.0](https://github.com/baz-scm/baz-plugin/compare/v0.13.2...v0.14.0) (2026-09-15)
 
 
