@@ -223,20 +223,13 @@ function isRenderablePath(p) {
   return typeof p === 'string' && p.length > 0 && !/[`\r\n\u0000-\u001f]/.test(p);
 }
 
-// Claude Code exposes a plugin-bundled MCP server's tools as
-// `mcp__plugin_<plugin>_<server>__<tool>`, so ours arrive as
-// `mcp__plugin_baz_baz__update_plan`; a standalone `baz` server, Codex and
-// Cursor use `mcp__baz__update_plan`. Returns the bare tool name for either
-// form, or null for any other tool. The hook matchers accept the same two forms.
+// Claude Code names plugin tools `mcp__plugin_baz_baz__<tool>`; elsewhere `mcp__baz__<tool>`.
 const BAZ_TOOL = /^mcp__(?:plugin_baz_)?baz__(.+)$/;
 function bazToolName(toolName) {
   const m = typeof toolName === 'string' ? toolName.match(BAZ_TOOL) : null;
   return m ? m[1] : null;
 }
 
-// How hook instructions name a baz tool. On Claude Code the agent may see
-// either prefix depending on how the server was installed, so both are named
-// and the agent calls the one in its tool list.
 function bazToolRef(tool, vendor) {
   return vendor === 'claude-code'
     ? `\`mcp__plugin_baz_baz__${tool}\` (or \`mcp__baz__${tool}\`, whichever is in your tool list)`

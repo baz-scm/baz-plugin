@@ -668,11 +668,6 @@ test('Codex hook commands use PLUGIN_ROOT, not CODEX_PLUGIN_DIR', () => {
 
 // --- tool names ---------------------------------------------------------------
 
-// Claude Code exposes a plugin-bundled server's tools as
-// `mcp__plugin_baz_baz__<tool>`, not `mcp__baz__<tool>`. Matchers written for
-// only the short form never fired there: plan-attach never filled update_plan,
-// and post-tool-use never counted a search. Every payload above uses the short
-// form, so these cover the long one end to end.
 console.log('\ntool names: plugin-namespaced and standalone both reach the hooks');
 
 const TOOL_FORMS = ['mcp__baz__', 'mcp__plugin_baz_baz__'];

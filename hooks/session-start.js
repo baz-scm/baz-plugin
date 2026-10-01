@@ -72,8 +72,6 @@ if (planPath) {
     + ` a directory this plugin owns, readable only by you. Do not put a plan in`
     + ` shared /tmp.`;
 }
-// Claude Code may prefix the plugin's tools with `mcp__plugin_baz_baz__`; see
-// bazToolName in hook-io.js.
 const searchTools = agentVendor === 'claude-code'
   ? '`repo_search`, `remote_file_search`, `remote_grep` — named `mcp__plugin_baz_baz__<tool>` or `mcp__baz__<tool>`, whichever is in your tool list'
   : '`mcp__baz__repo_search`, `mcp__baz__remote_file_search`, `mcp__baz__remote_grep`';
