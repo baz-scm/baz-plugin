@@ -97,7 +97,7 @@ Pass the session-correlation arguments on every Baz call — `sessionId`, `sessi
 
 ### Baz is required — confirm it before reviewing
 
-This step is not optional garnish. Before running the checks, confirm the Baz tools are actually callable: `mcp__baz__repo_search` and friends present in your tool list, and your first call not failing with an auth error. **If they are missing or unauthenticated, you must not quietly fall back to a local-only review** — that produces a review that looks complete while skipping the only checks that can see other repos.
+This step is not optional garnish. Before running the checks, confirm the Baz tools are actually callable: `mcp__baz__repo_search` and friends present in your tool list (Claude Code may list them as `mcp__plugin_baz_baz__repo_search` and so on — same tools, and the same prefix applies to every baz tool this skill names), and your first call not failing with an auth error. **If they are missing or unauthenticated, you must not quietly fall back to a local-only review** — that produces a review that looks complete while skipping the only checks that can see other repos.
 
 When Baz is unavailable, first decide whether the diff has an **outward-facing surface**: a changed or removed exported signature, an altered response/request shape, a renamed event or topic, a schema or DB column change, a new or removed public export, an enum or dispatch set another repo may switch on, a changed config or API contract.
 

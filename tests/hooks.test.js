@@ -666,6 +666,92 @@ test('Codex hook commands use PLUGIN_ROOT, not CODEX_PLUGIN_DIR', () => {
   }
 });
 
+// --- tool names ---------------------------------------------------------------
+
+// Claude Code exposes a plugin-bundled server's tools as
+// `mcp__plugin_baz_baz__<tool>`, not `mcp__baz__<tool>`. Matchers written for
+// only the short form never fired there: plan-attach never filled update_plan,
+// and post-tool-use never counted a search. Every payload above uses the short
+// form, so these cover the long one end to end.
+console.log('\ntool names: plugin-namespaced and standalone both reach the hooks');
+
+const TOOL_FORMS = ['mcp__baz__', 'mcp__plugin_baz_baz__'];
+
+test('Claude Code baz-tool matchers accept both name forms', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(HOOKS, 'hooks.json'), 'utf8'));
+  const matcherFor = (event, script) => {
+    const group = manifest.hooks[event].find(g =>
+      (g.hooks || []).some(h => h.command.includes(script)));
+    assert.ok(group, `no ${event} entry runs ${script}`);
+    return new RegExp(group.matcher);
+  };
+  const attach = matcherFor('PreToolUse', 'plan-attach.js');
+  const count = matcherFor('PostToolUse', 'post-tool-use.js');
+  for (const prefix of TOOL_FORMS) {
+    assert.match(`${prefix}update_plan`, attach);
+    assert.match(`${prefix}link_plan_to_pr`, attach);
+    assert.doesNotMatch(`${prefix}get_plan`, attach, 'get_plan must not be filled in');
+    assert.match(`${prefix}repo_search`, count);
+  }
+  assert.doesNotMatch('mcp__other__update_plan', attach);
+  assert.doesNotMatch('mcp__plugin_other_baz__repo_search', count);
+});
+
+for (const prefix of TOOL_FORMS) {
+  test(`plan-attach fills update_plan called as ${prefix}update_plan`, ({ env }) => {
+    const dir = scratchDirFor(env);
+    fs.writeFileSync(
+      path.join(dir, '.baz-plan-pending-ns.json'),
+      JSON.stringify({ content: '# parked\n' }),
+    );
+    const out = runHook('plan-attach.js', {
+      session_id: 'ns',
+      tool_name: `${prefix}update_plan`,
+      tool_input: {},
+    }, { env });
+    assert.ok(out.stdout, 'empty output: plan was not attached');
+    assert.strictEqual(JSON.parse(out.stdout).hookSpecificOutput.updatedInput.content, '# parked\n');
+  });
+
+  test(`plan-attach fills planId called as ${prefix}link_plan_to_pr`, ({ env }) => {
+    const out = runHook('plan-attach.js', {
+      session_id: 'nslink',
+      tool_name: `${prefix}link_plan_to_pr`,
+      tool_input: { repository: 'org/repo', prNumber: 1 },
+    }, { env });
+    assert.ok(out.stdout, 'empty output: planId was not filled');
+    assert.strictEqual(JSON.parse(out.stdout).hookSpecificOutput.updatedInput.planId, 'nslink');
+  });
+
+  test(`post-tool-use counts ${prefix}repo_search by its bare name`, ({ env }) => {
+    const dir = scratchDirFor(env);
+    runHook('post-tool-use.js', {
+      session_id: 'nscount',
+      tool_name: `${prefix}repo_search`,
+      tool_input: { repository: 'org/searched' },
+    }, { env });
+    const counts = fs.readFileSync(path.join(dir, '.baz-counts-nscount.json'), 'utf8');
+    assert.strictEqual(counts, 'repo_search\n');
+    const repos = fs.readFileSync(path.join(dir, '.baz-repos-nscount.json'), 'utf8');
+    assert.match(repos, /org\/searched/);
+  });
+}
+
+test('Claude Code instructions name both forms of the baz tools', ({ env }) => {
+  const dir = scratchDirFor(env);
+  fs.writeFileSync(path.join(dir, '.baz-plan-nsctx.md'), '# Plan\n');
+  const out = runHook('plan-complete.js', {
+    session_id: 'nsctx',
+    cwd: process.cwd(),
+    tool_name: 'Write',
+    tool_input: { file_path: path.join(dir, '.baz-plan-nsctx.md') },
+  }, { env });
+  const ctx = JSON.parse(out.stdout).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /mcp__plugin_baz_baz__update_plan/);
+  assert.match(ctx, /mcp__baz__update_plan/);
+  assert.match(context(env), /mcp__plugin_baz_baz__<tool>/);
+});
+
 // --- report -----------------------------------------------------------------
 
 console.log(`\n${passed} passed, ${failures.length} failed, ${skipped} skipped`);

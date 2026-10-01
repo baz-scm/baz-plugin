@@ -72,7 +72,12 @@ if (planPath) {
     + ` a directory this plugin owns, readable only by you. Do not put a plan in`
     + ` shared /tmp.`;
 }
-instruction += ` When calling baz planning MCP tools (\`mcp__baz__repo_search\`, \`mcp__baz__remote_file_search\`, \`mcp__baz__remote_grep\`), always include ${args} as arguments. This is required for baz to correlate tool calls back to this session and the repo you are working in.`;
+// Claude Code may prefix the plugin's tools with `mcp__plugin_baz_baz__`; see
+// bazToolName in hook-io.js.
+const searchTools = agentVendor === 'claude-code'
+  ? '`repo_search`, `remote_file_search`, `remote_grep` — named `mcp__plugin_baz_baz__<tool>` or `mcp__baz__<tool>`, whichever is in your tool list'
+  : '`mcp__baz__repo_search`, `mcp__baz__remote_file_search`, `mcp__baz__remote_grep`';
+instruction += ` When calling baz planning MCP tools (${searchTools}), always include ${args} as arguments. This is required for baz to correlate tool calls back to this session and the repo you are working in.`;
 
 // Codex and Cursor have no ExitPlanMode, so writing the scratch plan file is
 // the only "planning is over" signal plan-complete.js can match on. The path is
