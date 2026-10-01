@@ -27,7 +27,7 @@ hooks/
   hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only). No session-end wiring — Cursor's validator does not accept `sessionEnd`; see Hook counter mechanics for the counter-file trade-off. ${CURSOR_PLUGIN_ROOT}
 
 skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-routing rules
-skills/plan-with-baz/SKILL.md              Task skill: manual /baz:plan-with-baz planning command
+skills/plan-with-baz/SKILL.md              Task skill: /baz:plan-with-baz planning command, also agent-invocable
 skills/get-plan-comments/SKILL.md          Task skill: /baz:get-plan-comments pulls a plan's review comments back
 skills/review/SKILL.md                     Task skill: /baz:review diff review, cross-repo checks via Baz
 .cursor/rules/baz-codebase-exploration.mdc Reference skill, Cursor rules format (always-apply)
