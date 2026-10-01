@@ -6,7 +6,6 @@ description: >
   structured implementation plan the user signs off on before any code is
   written. Invoke with
   /baz:plan-with-baz when you want to start planning a piece of work.
-disable-model-invocation: true
 argument-hint: [feature or change to plan]
 license: MIT
 ---
