@@ -17,7 +17,7 @@ failSoft();
 
 // PostToolUse hook that, once planning is done, prompts the agent to ASK the
 // user whether to upload the plan to baz. Uploading is deliberately not
-// automatic: `mcp__baz__update_plan` publishes the plan to Baz, where the org
+// automatic: `update_plan` publishes the plan to Baz, where the org
 // can read and comment on it, so the user gets to decide. This hook never
 // authorizes the call — it supplies the authoritative arguments and instructs
 // the agent to obtain consent first. Three trigger paths converge here:
