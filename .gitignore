@@ -4,7 +4,8 @@
 *.log
 
 # local plugin/skill testing
-.claude/
+.claude/*
+!.claude/CLAUDE.md
 
 # local scratch notes
 tmp/
