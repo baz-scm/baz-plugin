@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.2](https://github.com/baz-scm/baz-plugin/compare/v0.15.1...v0.15.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* add plugin icon and privacy policy URL ([#57](https://github.com/baz-scm/baz-plugin/issues/57)) ([e87568b](https://github.com/baz-scm/baz-plugin/commit/e87568b320d77bb5f8001e4d2f04183688fd372f))
+
 ## [0.15.1](https://github.com/baz-scm/baz-plugin/compare/v0.15.0...v0.15.1) (2026-10-06)
 
 
