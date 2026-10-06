@@ -9,6 +9,7 @@
   "homepage": "https://github.com/baz-scm/baz-plugin",
   "repository": "https://github.com/baz-scm/baz-plugin",
   "license": "MIT",
+  "privacyPolicyUrl": "https://baz.ai/privacy",
   "mcpServers": {
     "baz": {
       "type": "http",
