@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.1](https://github.com/baz-scm/baz-plugin/compare/v0.15.0...v0.15.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **hooks:** match plugin-namespaced baz tool names on Claude Code ([#53](https://github.com/baz-scm/baz-plugin/issues/53)) ([e43888f](https://github.com/baz-scm/baz-plugin/commit/e43888fe57c115665f528b8645fa57b277ec4fc5))
+* move CLAUDE.md under .claude/ to pass strict plugin validation ([#56](https://github.com/baz-scm/baz-plugin/issues/56)) ([0c7da7c](https://github.com/baz-scm/baz-plugin/commit/0c7da7cffd832b2ae0e529c911e5991cb741b1c3))
+
 ## [0.15.0](https://github.com/baz-scm/baz-plugin/compare/v0.14.0...v0.15.0) (2026-10-01)
 
 
