@@ -22,7 +22,7 @@ hooks/
 
   plan-attach.js                Claude Code only: PreToolUse on mcp__baz__update_plan and mcp__baz__link_plan_to_pr. Fills update_plan with the plan parked by plan-complete.js, so the plan is generated once instead of being re-typed into the call, and fills link_plan_to_pr's planId with the session id. Adds only what is missing, so a call that already carries content (Codex/Cursor) or its own planId passes through.
 
-  hooks.json                    CC hooks: SessionStart + PreToolUse (mcp__baz__update_plan|mcp__baz__link_plan_to_pr) + PostToolUse (mcp__baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
+  hooks.json                    CC hooks: SessionStart + PreToolUse (mcp__(plugin_baz_)?baz__(update_plan|link_plan_to_pr)) + PostToolUse (mcp__(plugin_baz_)?baz__ + Write|Edit) + SessionEnd, ${CLAUDE_PLUGIN_ROOT}
   hooks.codex.json              Codex hooks: SessionStart + PostToolUse (mcp__baz__ + apply_patch|Write|Edit) + Stop, ${PLUGIN_ROOT}
   hooks.cursor.json             Cursor hooks: sessionStart + postToolUse (mcp__baz__ + edit_file|write_file|Write|Edit) + stop (stop-token-tally.js only). No session-end wiring — Cursor's validator does not accept `sessionEnd`; see Hook counter mechanics for the counter-file trade-off. ${CURSOR_PLUGIN_ROOT}
 
@@ -167,7 +167,7 @@ Consent is asked **once** per session. The hook fires on every plan-file write, 
    update all three `hooks.*.json` files. Note that Cursor uses camelCase event
    names + a flatter manifest shape (no nested `hooks` array, command directly on the entry).
 3. The `PostToolUse` block in `hooks.json` has three matchers today:
-   - `mcp__baz__` → `post-tool-use.js` (counts baz MCP tool calls)
+   - `mcp__(plugin_baz_)?baz__` → `post-tool-use.js` (counts baz MCP tool calls)
    - `Write|Edit` → `plan-complete.js` (file-write branch: fires when the agent writes the scratch plan file)
    - `ExitPlanMode` → `plan-complete.js` (fires when the agent exits CC's plan mode)
    Add new matchers as additional entries in the same `PostToolUse` array.
@@ -175,3 +175,5 @@ Consent is asked **once** per session. The hook fires on every plan-file write, 
 ## MCP server
 
 All three platforms wire `https://baz.co/mcp` as an HTTP MCP server named `baz`. OAuth (Descope) opens on first use.
+
+**Claude Code names the bundled server's tools `mcp__plugin_baz_baz__<tool>`**, not `mcp__baz__<tool>` — the short form only appears when `baz` is configured as a standalone server, and on Codex/Cursor. Every Claude Code matcher accepts both (`mcp__(plugin_baz_)?baz__…`), and hook code parses names through `bazToolName()` in `hook-io.js`, never a string split. Matchers written for the short form alone silently stopped `plan-attach.js` and `post-tool-use.js` from firing: the agent re-typed the whole plan into `update_plan` and uploads lost their searched-repo attribution, while every test stayed green because every payload used the short form. The `tool names` tests in `tests/hooks.test.js` run both forms through the real manifest matchers.
