@@ -51,7 +51,7 @@ Cursor doesn't auto-install MCP servers. Two manual steps:
 
 The `baz-codebase-exploration` skill teaches the agent when to use which, and to stop searching and start reading once it has a hit. It loads automatically when relevant.
 
-On top of those, the plugin ships three commands: `/baz:plan-with-baz` for planning a change, `/baz:get-plan-comments` for pulling a plan's review comments back into your session, and `/baz:review` for reviewing a change.
+On top of those, the plugin ships four commands: `/baz:plan-with-baz` for planning a change, `/baz:get-plan-comments` for pulling a plan's review comments back into your session, `/baz:review` for reviewing a change, and `/baz:fast-review` for a quicker review driven by the questions Baz picks for your diff.
 
 ## Planning command
 
@@ -119,6 +119,33 @@ With `--fix` (or when you ask afterwards), it turns the findings into a task lis
 | Claude Code | `/baz:review [scope]` |
 | Cursor | `/review [scope]` |
 | Codex | invoke the `review` skill |
+
+## Fast review command
+
+**`/baz:fast-review`** is a quicker, more focused review. It sends your diff to Baz, which picks up to 20 questions your org's reviewers have actually raised in past reviews and that matter for this change. The agent answers each one against the code — violated, holds, or not applicable, with the `file:line` that backs it — and then makes one pass for major security and logic bugs: injection, missing auth, leaked secrets, data loss, a crash on the common path. Nothing else: no style, no refactors, no open-ended investigation.
+
+It takes the same arguments as `/baz:review`:
+
+```text
+/baz:fast-review                   # everything not yet on the base branch
+/baz:fast-review uncommitted       # only staged + unstaged edits
+/baz:fast-review --pr 42           # review an open PR (needs gh / glab)
+/baz:fast-review --fix             # review, then apply the fixes it finds
+```
+
+The report lists every question with its verdict, then the findings grouped by severity.
+
+**It needs Baz.** If the questions can't be loaded — Baz isn't connected, the call fails, or no questions come back — it says so and stops. It never falls back to a partial review.
+
+**It does not check other repos for broken consumers.** If your change alters something other repos may depend on (a signature, a schema, an event), the report says so and points you to `/baz:review` before merging.
+
+Unlike `/baz:review`, it only runs when you invoke it — asking "review my changes" still runs `/baz:review`.
+
+| Platform | How to invoke |
+|---|---|
+| Claude Code | `/baz:fast-review [scope]` |
+| Cursor | `/fast-review [scope]` |
+| Codex | invoke the `fast-review` skill |
 
 ## License
 

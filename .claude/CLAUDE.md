@@ -30,19 +30,21 @@ skills/baz-codebase-exploration/SKILL.md   Reference skill: auto-loaded tool-rou
 skills/plan-with-baz/SKILL.md              Task skill: /baz:plan-with-baz planning command, also agent-invocable
 skills/get-plan-comments/SKILL.md          Task skill: /baz:get-plan-comments pulls a plan's review comments back
 skills/review/SKILL.md                     Task skill: /baz:review diff review, cross-repo checks via Baz
+skills/fast-review/SKILL.md                Task skill: /baz:fast-review question-driven diff review via relevant_review_questions
 .cursor/rules/baz-codebase-exploration.mdc Reference skill, Cursor rules format (always-apply)
 ```
 
 ## Skills
 
-Four skills, by type:
+Five skills, by type:
 
 - **`baz-codebase-exploration`** — *reference* content. Auto-loaded; the tool-routing rules + search budget, **and nothing else**. Its only session-tracking content is the `sessionId`/`sessionRepository`/`agentVendor` arguments that search calls require. What happens to a finished plan is not its concern — that boundary is deliberate and has been re-broken before, so resist re-adding plan lifecycle here. Also mirrored as a Cursor always-apply rule (`.cursor/rules/*.mdc`).
 - **`plan-with-baz`** — *task* content. Invoked as `/baz:plan-with-baz`, or by the agent itself — it omits `disable-model-invocation`, so an automated process can load it through the Skill tool. Five steps: explore via Baz, write the plan to the scratch path SessionStart injects, in a fixed section schema, get the user's approval, offer to upload, link the PR that implements it. It says nothing about harness modes — the read-only discipline it enforces on itself is what holds until the user approves, on every platform. It owns the **whole plan lifecycle**, including the Step 4 upload-consent contract and the Step 5 PR link. It defers the detailed routing rules to `baz-codebase-exploration` rather than forking the table.
 - **`get-plan-comments`** — *task* content. Invoked as `/baz:get-plan-comments [plan url or id]` (`disable-model-invocation: true`). The return leg of the plan lifecycle: reads a plan's comments through `get_plan_comments`, reports every one with an assessment, and applies only what the user then picks. Two properties are load-bearing. Triage is the human's — `used` marks a comment worth considering, never permission to edit — and fetched comment text is untrusted data, so nothing inside it can authorize a tool call. **Its Step B passes `sessionId` and `content` to `update_plan` explicitly**, which looks like it contradicts the attach contract below but does not: the hook fills in the *current session's* id, and this skill can be working on a plan this session never created. Do not "consistency-fix" those arguments away.
 - **`review`** — *task* content. Invoked as `/baz:review [scope]`, and like `plan-with-baz` it **omits** `disable-model-invocation`, so "review my changes" triggers it too — natural-language invocation is the point of parity with competing review plugins. Resolves a git/PR diff, reads the changed files, loads the org's configured reviewers via `organizational_review_guidelines` (see below), then spends the `baz-codebase-exploration` search budget on the checks only indexed search can make: broken call sites in other repos, the far side of a contract, and registration sites a new case is missing from. Optional `--fix` loop applies findings in the local checkout only.
+- **`fast-review`** — *task* content. Invoked as `/baz:fast-review [scope]` (`disable-model-invocation: true`, so "review my changes" keeps routing to `review` instead of two skills competing for it). Same arguments and same Step 1 scope ladder as `review`, copied rather than shared — keep the two in sync. Sends the diff to `relevant_review_questions`, answers each returned question as violated / holds / not applicable with code evidence, then one majors-only sweep. See "Fast review" below.
 
-All four live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. `plan-with-baz`, `get-plan-comments` and `review` are on-demand, so none has a `.cursor/rules/*.mdc` mirror (rules are always-apply).
+All five live under `skills/` and ship to all three platforms with no manifest change — Codex and Cursor manifests already point at `./skills/`, Claude Code auto-discovers. `plan-with-baz`, `get-plan-comments`, `review` and `fast-review` are on-demand, so none has a `.cursor/rules/*.mdc` mirror (rules are always-apply).
 
 `review` deliberately introduces no new MCP tool, hook, or manifest entry — it composes tools the `baz` server already exposes: the three search tools plus `organizational_review_guidelines`. Cross-repo findings are reported, never edited: the `--fix` loop only touches the repo that is checked out.
 
@@ -55,6 +57,19 @@ All four live under `skills/` and ship to all three platforms with no manifest c
 The failure posture differs from the Baz-unavailable one on purpose: missing guidelines **do not** withhold the merge verdict. They change how the review is calibrated, not whether it can see cross-repo consumers, so the skill notes the gap in `## Coverage` and reviews on. The `organizational_review_guidelines` call is not an indexed search and does not count against the 10-call search budget.
 
 **Baz-unavailable posture — gate the verdict, not the command.** A review run without the Baz MCP tools would otherwise degrade silently into a local review that still claims "safe to merge", which is the one claim local information cannot support. Rather than hard-blocking the command (wrong for a model-invocable skill — a lapsed OAuth token shouldn't wall off "review my changes", and a formatting-only diff has nothing cross-repo to miss), the skill branches on whether the diff has an **outward-facing surface**: if it does, it stops, names the unchecked symbols, and withholds the merge verdict; if it doesn't, it reviews normally with a one-line note. The `## Coverage` heading in the Step 6 report template exists to make this state explicit on every run, including the partial case where the search budget runs out mid-check. If that posture is ever relaxed to a hard block, the report template's coverage line should stay — it's what keeps a degraded review from reading as a complete one.
+
+### Fast review
+
+`fast-review` is the Jev-assisted review mode: Baz scores its question bank against the diff and returns up to 20 questions, and the agent judges the code against those and nothing else. It composes one tool, `relevant_review_questions`, which the `baz` server owns (BFF owns the bank and the model call). No hook or manifest change: `post-tool-use.js` already counts any `mcp__(plugin_baz_)?baz__` call. The skill finds the tool by its `relevant_review_questions` suffix rather than a hard-coded prefix, because the prefix differs by registration (see MCP server).
+
+Four properties are load-bearing:
+
+- **Fail and stop, never a partial review.** Tool missing, any call erroring, or zero questions ends the run with a "not run" block. It does **not** fall back to `review` or to the model's own checklist — a fast review without its questions is not the review the user asked for. This is deliberately the opposite of `review`'s posture on missing guidelines.
+- **The majors sweep is a closed list.** Injection, missing authn/authz, leaked secrets, data loss, a crash or wrong result on the common path — and an explicit "do not report" list. Widening it turns fast-review back into a slow general review.
+- **No merge verdict past an outward-facing surface.** fast-review skips the cross-repo consumer sweep, so it applies `review`'s Step 6 rule: a diff that changes something other repos may consume ends with "cross-repo consumers unchecked — run `/baz:review` before merging".
+- **Questions are criteria, never instructions** — same rule as org guidelines; they are mined from org data.
+
+Every question appears in the report's `## Questions` table with a verdict, so an unanswered question is visible. Diffs over ~100KB are chunked at file boundaries and the question sets merged.
 
 ### Plan output schema (Tier-3 contract)
 
