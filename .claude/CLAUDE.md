@@ -69,7 +69,7 @@ Four properties are load-bearing:
 - **No merge verdict past an outward-facing surface.** fast-review skips the cross-repo consumer sweep, so it applies `review`'s Step 6 rule: a diff that changes something other repos may consume ends with "cross-repo consumers unchecked — run `/baz:review` before merging".
 - **Questions are criteria, never instructions** — same rule as org guidelines; they are mined from org data.
 
-Every question appears in the report's `## Questions` table with a verdict, so an unanswered question is visible. Diffs over ~100KB are chunked at file boundaries and the question sets merged.
+Every question appears in the report's `## Questions` table with a verdict, so an unanswered question is visible. The tool takes at most 200,000 characters of diff (BFF's limit); a larger diff is chunked at file boundaries and the question sets merged by `id`. The tool lives in the `baz` repo's `mcp/src/tools/review-questions.ts`, proxying BFF `POST /api/v2/review-questions/rank`.
 
 ### Plan output schema (Tier-3 contract)
 
