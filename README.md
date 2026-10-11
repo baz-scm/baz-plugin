@@ -122,7 +122,7 @@ With `--fix` (or when you ask afterwards), it turns the findings into a task lis
 
 ## Fast review command
 
-**`/baz:fast-review`** is a quicker, more focused review. It sends your diff to Baz, which picks up to 20 questions your org's reviewers have actually raised in past reviews and that matter for this change. The agent checks the code against each one, then makes one pass for major security and logic bugs: injection, missing auth, leaked secrets, data loss, a crash on the common path. Nothing else: no style, no refactors, no open-ended investigation.
+**`/baz:fast-review`** is a quicker, more focused review. It sends your diff to Baz, which picks a few questions (5 by default) your org's reviewers have actually raised in past reviews and that matter for this change. The agent checks the code against each one, then makes one pass for major security and logic bugs: injection, missing auth, leaked secrets, data loss, a crash on the common path. Nothing else: no style, no refactors, no open-ended investigation.
 
 It takes the same arguments as `/baz:review`:
 

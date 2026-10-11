@@ -60,7 +60,7 @@ The failure posture differs from the Baz-unavailable one on purpose: missing gui
 
 ### Fast review
 
-`fast-review` is the Jev-assisted review mode: Baz scores its question bank against the diff and returns up to 20 questions, and the agent judges the code against those and nothing else. It composes one tool, `relevant_review_questions`, which the `baz` server owns (BFF owns the bank and the model call). No hook or manifest change: `post-tool-use.js` already counts any `mcp__(plugin_baz_)?baz__` call. The skill finds the tool by its `relevant_review_questions` suffix rather than a hard-coded prefix, because the prefix differs by registration (see MCP server).
+`fast-review` is the Jev-assisted review mode: Baz scores its question bank against the diff and returns a few questions (5 by default; the tool owns that default), and the agent judges the code against those and nothing else. It composes one tool, `relevant_review_questions`, which the `baz` server owns (BFF owns the bank and the model call). No hook or manifest change: `post-tool-use.js` already counts any `mcp__(plugin_baz_)?baz__` call. The skill finds the tool by its `relevant_review_questions` suffix rather than a hard-coded prefix, because the prefix differs by registration (see MCP server).
 
 Four properties are load-bearing:
 

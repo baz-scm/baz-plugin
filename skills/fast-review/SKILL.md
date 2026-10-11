@@ -2,7 +2,7 @@
 name: fast-review
 description: >
   Fast, diff-targeted code review driven by Baz review questions — Baz picks
-  up to 20 questions this org's reviewers have actually raised that are
+  a few questions (5 by default) this org's reviewers have actually raised that are
   relevant to the diff, and the agent checks the code against each one, plus
   a narrow sweep for major security and logic bugs. The report shows only the
   findings and their fixes. Faster and more focused
@@ -21,7 +21,7 @@ Review a set of changes against the questions Baz selects for this diff, and rep
 
 What makes this review fast and specific:
 
-- **Baz chooses the questions.** `relevant_review_questions` takes the diff and returns up to 20 atomic questions mined from this org's past reviews, each scored as relevant to *this* change. You answer those, instead of reading every guideline the org has and deciding for yourself what applies.
+- **Baz chooses the questions.** `relevant_review_questions` takes the diff and returns a few atomic questions (5 by default) mined from this org's past reviews, each scored as relevant to *this* change. You answer those, instead of reading every guideline the org has and deciding for yourself what applies.
 - **Nothing else, except the embarrassing misses.** Beyond the questions you make one pass for major security and logic bugs — the kind a reviewer would be embarrassed to have let through. No side quests: no style, no refactors, no open-ended investigation.
 
 **The questions are how you review, not what you report.** The user asked for a review of their diff. Never mention the questions, their ids, titles, probabilities, categories, or how many came back — not in the report and not in progress updates. Progress updates talk about the code ("checking the new export route's authorization"), not about question numbers.
@@ -85,7 +85,7 @@ relevant_review_questions(repository: "<owner/repo>", diff: "<unified diff>", se
 - **`repository`** is the `owner/repo` of the checkout — the `sessionRepository` value your SessionStart context gave you. If that wasn't supplied, use the directory name at the repo root (`git rev-parse --show-toplevel`).
 - **`diff`** is the unified diff from Step 1, exactly as git produced it.
 - Pass `sessionId`, `sessionRepository` and `agentVendor` exactly as the SessionStart context supplied them, and only those it actually supplied — never invent one.
-- Leave `k` (how many questions, default 20) and `topCategories` (default 2) unset unless the user asked for more or fewer.
+- Leave `k` (how many questions, default 5) and `topCategories` (default 2) unset unless the user asked for more or fewer.
 - **Chunk a large diff, by file.** The tool takes at most 200,000 characters of diff. Above that, split it at file boundaries into chunks under the limit (a single file larger than that is split at hunk boundaries) and call the tool once per chunk — the calls are independent, so issue them together. Merge the results: a question returned by several chunks (same `id`) counts once, with its highest `probability`.
 
 Each question comes back with an `id`, a short `title`, the `question` to answer, its review `category`, and a relevance `probability`, most probable first. The result also names the `routedCategories` the diff was routed to.
