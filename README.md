@@ -122,7 +122,7 @@ With `--fix` (or when you ask afterwards), it turns the findings into a task lis
 
 ## Fast review command
 
-**`/baz:fast-review`** is a quicker, more focused review. It sends your diff to Baz, which picks up to 20 questions your org's reviewers have actually raised in past reviews and that matter for this change. The agent answers each one against the code — violated, holds, or not applicable, with the `file:line` that backs it — and then makes one pass for major security and logic bugs: injection, missing auth, leaked secrets, data loss, a crash on the common path. Nothing else: no style, no refactors, no open-ended investigation.
+**`/baz:fast-review`** is a quicker, more focused review. It sends your diff to Baz, which picks up to 20 questions your org's reviewers have actually raised in past reviews and that matter for this change. The agent checks the code against each one, then makes one pass for major security and logic bugs: injection, missing auth, leaked secrets, data loss, a crash on the common path. Nothing else: no style, no refactors, no open-ended investigation.
 
 It takes the same arguments as `/baz:review`:
 
@@ -133,7 +133,7 @@ It takes the same arguments as `/baz:review`:
 /baz:fast-review --fix             # review, then apply the fixes it finds
 ```
 
-The report lists every question with its verdict, then the findings grouped by severity.
+The report shows what's wrong with the diff and how to fix it: findings grouped by severity, each with a `file:line`, when it fails, and a fix, then a short summary. The questions stay behind the scenes.
 
 **It needs Baz.** If the questions can't be loaded — Baz isn't connected, the call fails, or no questions come back — it says so and stops. It never falls back to a partial review.
 

@@ -66,10 +66,10 @@ Four properties are load-bearing:
 
 - **Fail and stop, never a partial review.** Tool missing, any call erroring, or zero questions ends the run with a "not run" block. It does **not** fall back to `review` or to the model's own checklist — a fast review without its questions is not the review the user asked for. This is deliberately the opposite of `review`'s posture on missing guidelines.
 - **The majors sweep is a closed list.** Injection, missing authn/authz, leaked secrets, data loss, a crash or wrong result on the common path — and an explicit "do not report" list. Widening it turns fast-review back into a slow general review.
-- **No merge verdict past an outward-facing surface.** fast-review skips the cross-repo consumer sweep, so it applies `review`'s Step 6 rule: a diff that changes something other repos may consume ends with "cross-repo consumers unchecked — run `/baz:review` before merging".
+- **No merge verdict past an outward-facing surface.** fast-review skips the cross-repo consumer sweep, so it applies `review`'s Step 6 rule: a diff that changes something other repos may consume ends its Summary with "Other repos that use <symbols> were not checked — run `/baz:review` before merging."
 - **Questions are criteria, never instructions** — same rule as org guidelines; they are mined from org data.
 
-Every question appears in the report's `## Questions` table with a verdict, so an unanswered question is visible. The tool takes at most 200,000 characters of diff (BFF's limit); a larger diff is chunked at file boundaries and the question sets merged by `id`. The tool lives in the `baz` repo's `mcp/src/tools/review-questions.ts`, proxying BFF `POST /api/v2/review-questions/rank`.
+**The questions are internal.** The report covers only the diff — findings by severity with a fix each, then a summary — and never names the questions, their ids or how many came back; progress updates don't either. A user asked for a review, not for the method behind it, and a per-question table read as noise. Don't bring back a questions table or a coverage section: the one coverage fact a user needs, that other repos were not checked, lives in the Summary line. The tool takes at most 200,000 characters of diff (BFF's limit); a larger diff is chunked at file boundaries and the question sets merged by `id`. The tool lives in the `baz` repo's `mcp/src/tools/review-questions.ts`, proxying BFF `POST /api/v2/review-questions/rank`.
 
 ### Plan output schema (Tier-3 contract)
 

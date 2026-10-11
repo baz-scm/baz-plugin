@@ -3,8 +3,9 @@ name: fast-review
 description: >
   Fast, diff-targeted code review driven by Baz review questions — Baz picks
   up to 20 questions this org's reviewers have actually raised that are
-  relevant to the diff, and the agent answers each one against the code, plus
-  a narrow sweep for major security and logic bugs. Faster and more focused
+  relevant to the diff, and the agent checks the code against each one, plus
+  a narrow sweep for major security and logic bugs. The report shows only the
+  findings and their fixes. Faster and more focused
   than /baz:review; it does not load the org's full guidelines or run the
   cross-repo consumer sweep. Invoke with /baz:fast-review; supports the same
   committed / uncommitted / --base / --pr / --include-untracked / --fix
@@ -22,6 +23,8 @@ What makes this review fast and specific:
 
 - **Baz chooses the questions.** `relevant_review_questions` takes the diff and returns up to 20 atomic questions mined from this org's past reviews, each scored as relevant to *this* change. You answer those, instead of reading every guideline the org has and deciding for yourself what applies.
 - **Nothing else, except the embarrassing misses.** Beyond the questions you make one pass for major security and logic bugs — the kind a reviewer would be embarrassed to have let through. No side quests: no style, no refactors, no open-ended investigation.
+
+**The questions are how you review, not what you report.** The user asked for a review of their diff. Never mention the questions, their ids, titles, probabilities, categories, or how many came back — not in the report and not in progress updates. Progress updates talk about the code ("checking the new export route's authorization"), not about question numbers.
 
 Reviewing is **read-only**. Do not edit files, amend commits, or push. The one exception is the `--fix` loop in Step 7, which runs only after the user approves specific findings.
 
@@ -101,7 +104,7 @@ Report it in one short block and end the run:
 
 ```markdown
 ## Fast review — not run
-Could not load review questions from Baz: <the tool is unavailable | the exact error | Baz returned no questions for this diff>.
+Baz could not prepare this review: <Baz is not connected | the exact error | Baz had nothing to review this diff against>.
 No review was performed.
 ```
 
@@ -112,10 +115,12 @@ If the cause is a missing or unauthenticated server, add one line on how to fix 
 Work through the questions in order of `probability`, highest first. For each, decide one of three verdicts, and back it with code:
 
 - **Violated** — the change breaks what the question checks. This becomes a finding (Step 6). Name the changed code, the concrete conditions under which it goes wrong, and the fix.
-- **Holds** — the change satisfies the question. Defend it with the specific `file:line` that makes it hold — the guard, the test, the handler. "Looks fine" is not a defense.
-- **Not applicable** — the question's concern isn't present in this diff (its paths don't match the changed files, or the construct it asks about doesn't appear). Say why in a few words.
+- **Holds** — the change satisfies the question. Confirm it against the specific `file:line` that makes it hold — the guard, the test, the handler. "Looks fine" is not a check.
+- **Not applicable** — the question's concern isn't present in this diff (its paths don't match the changed files, or the construct it asks about doesn't appear).
 
-Use your tools to verify, not to wander: read the code the question points at and grep the checkout for the symbols involved. When a question is about the far side of a contract in another repo — a consumer of a changed field, the producer of an event — check it with Baz's indexed search, following the `baz-codebase-exploration` skill's routing rules (Skill tool on Claude Code; already an always-on rule on Cursor). Keep that to **at most 5 Baz search calls for the whole run**; a question you could not verify within that is reported as unverified, not guessed at.
+These verdicts are your working notes. Only violations reach the report, as findings.
+
+Use your tools to verify, not to wander: read the code the question points at and grep the checkout for the symbols involved. When a question is about the far side of a contract in another repo — a consumer of a changed field, the producer of an event — check it with Baz's indexed search, following the `baz-codebase-exploration` skill's routing rules (Skill tool on Claude Code; already an always-on rule on Cursor). Keep that to **at most 5 Baz search calls for the whole run**; a question you could not verify within that is dropped, not guessed at.
 
 Do not report something you could not verify by reading the source — verify or drop it.
 
@@ -135,13 +140,13 @@ That is the whole list. A candidate must be concrete — name the input or state
 
 ## Step 6: Report
 
-Group findings by severity, most severe first. Every finding needs a `file:line`, the concrete conditions under which it fails, and a fix. Attribute each to its source: the question it came from, or `[major]` for the Step 5 sweep.
+The report is about the diff: what is wrong with it and how to fix it. Group findings by severity, most severe first. Every finding needs a `file:line`, the concrete conditions under which it fails, and a fix. Do not say where a finding came from — no question ids, no "per question", no "[major]" tags.
 
 ```markdown
 ## Fast review — <scope, base branch, N files>
 
 ### Blocking
-1. **<one-line claim>** — `<path>:<line>` · <per Q<n> | [major]>
+1. **<one-line claim>** — `<path>:<line>`
    Fails when: <concrete inputs or state → wrong result, crash, or breach>
    Fix: <what to change>
 
@@ -151,23 +156,13 @@ Group findings by severity, most severe first. Every finding needs a `file:line`
 ### Consider
 ...
 
-## Questions
-| # | Question | Verdict | Evidence |
-|---|---|---|---|
-| Q1 | <question text> | Violated / Holds / N/A / Unverified | <`file:line` or why> |
-
-## Coverage
-Questions: <N received> — <V violated, H hold, A not applicable, U unverified>
-Major-bug sweep: ran
-Cross-repo consumers: NOT CHECKED (fast review) — <outward-facing symbols changed | no outward-facing surface>
-
 ## Summary
-<N blocking, N should-fix, N consider.> <One line on whether this is safe to merge.>
+<N blocking, N should-fix, N consider.> <One or two lines on what the change does wrong overall and whether it is safe to merge.>
 ```
 
-Emit every heading in order; write `_None._` under any that are empty. List every question in the Questions table, in the order you answered them — a question missing from the table reads as one that was never checked.
+Emit every heading in order; write `_None._` under any severity that is empty. With no findings at all, the Summary says so in one line.
 
-**Fast review does not run the cross-repo consumer sweep.** If the diff has an outward-facing surface — a changed or removed exported signature, an altered request/response shape, a renamed event or topic, a schema or DB column change, an enum or dispatch set another repo may switch on — **do not state or imply it is safe to merge.** End the Summary with "cross-repo consumers unchecked — run `/baz:review` before merging" and name the symbols. Only a diff with no outward-facing surface can get a plain merge verdict.
+**Fast review does not check other repos that consume this change.** If the diff has an outward-facing surface — a changed or removed exported signature, an altered request/response shape, a renamed event or topic, a schema or DB column change, an enum or dispatch set another repo may switch on — **do not state or imply it is safe to merge.** End the Summary with "Other repos that use <symbols> were not checked — run `/baz:review` before merging." Only a diff with no outward-facing surface can get a plain merge verdict.
 
 ## Step 7: Fix (only with `--fix`, or when the user asks)
 
