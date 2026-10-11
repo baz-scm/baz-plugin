@@ -46,7 +46,7 @@ Never assume `main` exists because the repo looks like it should have one — `r
 | *(none)* | Everything not yet on the base branch — commits on this branch **plus** uncommitted tracked edits | `git diff $(git merge-base <base> HEAD)` |
 | `committed` | Only commits on this branch | `git diff <base>...HEAD` |
 | `uncommitted` | Only staged + unstaged edits to tracked files | `git diff HEAD` |
-| `--include-untracked` | Adds new files git isn't tracking yet | `git ls-files --others --exclude-standard`, then `git diff --no-index /dev/null <file>` for each |
+| `--include-untracked` | Adds new files git isn't tracking yet | `git ls-files -z --others --exclude-standard`, then `git diff --no-index -- /dev/null '<file>'` for each — single-quote every path, since a file name can contain shell syntax |
 | `--pr <number\|url>` | An open pull request | `gh pr diff <n>` (or `glab mr diff <n>`) |
 
 ### When flags conflict
