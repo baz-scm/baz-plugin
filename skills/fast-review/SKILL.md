@@ -120,7 +120,7 @@ Work through the questions in order of `probability`, highest first. For each, d
 
 These verdicts are your working notes. Only violations reach the report, as findings.
 
-Use your tools to verify, not to wander: read the code the question points at and grep the checkout for the symbols involved. When a question is about the far side of a contract in another repo — a consumer of a changed field, the producer of an event — check it with Baz's indexed search, following the `baz-codebase-exploration` skill's routing rules (Skill tool on Claude Code; already an always-on rule on Cursor). Keep that to **at most 5 Baz search calls for the whole run**; a question you could not verify within that is dropped, not guessed at.
+Use your tools to verify, not to wander: read the code the question points at and grep the checkout for the symbols involved. When a question is about the far side of a contract in another repo — a consumer of a changed field, the producer of an event — check it with Baz's indexed search, following the `baz-codebase-exploration` skill's routing rules (Skill tool on Claude Code; already an always-on rule on Cursor). Keep that to **at most 10 Baz search calls for the whole run**, the same budget as `/baz:review`; a question you could not verify within that is dropped, not guessed at.
 
 Do not report something you could not verify by reading the source — verify or drop it.
 
