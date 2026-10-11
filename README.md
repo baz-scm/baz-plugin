@@ -103,7 +103,7 @@ It reads every comment and prints one table — what each asks, whether the clai
 /baz:review --include-untracked    # also review new, untracked files
 /baz:review --base develop         # compare against a different base
 /baz:review --pr 42                # review an open PR (needs gh / glab)
-/baz:review --fix                  # review, then fix the findings you approve
+/baz:review --fix                  # review, then apply the fixes it finds
 ```
 
 Findings come back grouped by severity, each with a `file:line`, the conditions that make it fail, and a fix. Cross-repo findings name the repo they're in. Style nits and pre-existing issues the diff didn't touch are deliberately left out.
@@ -112,7 +112,7 @@ You can also just ask — "review my changes", "check this branch for security i
 
 **The cross-repo checks require Baz to be connected.** If it isn't, the review won't silently shrink to a local one: for any change with an outward-facing surface (a changed signature, schema, event, or public export) it stops, names the symbols whose consumers it couldn't check, and withholds the merge verdict rather than implying coverage it doesn't have. Purely local changes — formatting, a private helper, a test-only edit — still review normally, since there's nothing cross-repo to miss.
 
-With `--fix` (or when you ask afterwards), it turns the findings into a task list, shows it, and fixes the ones you approve, one at a time, running the project's tests and linter if there are any. It only edits the repo you have checked out; findings in other repos are reported, not edited.
+With `--fix` (or when you ask afterwards), it turns the findings into a task list, shows it, then works through it one finding at a time, running the project's tests and linter if there are any. It only edits the repo you have checked out; findings in other repos are reported, not edited.
 
 | Platform | How to invoke |
 |---|---|
