@@ -10,7 +10,7 @@ Designed for planning features against repositories you haven't checked out loca
 
 ```bash
 /plugin marketplace add baz-scm/baz-plugin
-/plugin add baz
+/plugin install baz@baz
 /reload-plugins
 ```
 
