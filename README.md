@@ -110,6 +110,8 @@ Findings come back grouped by severity, each with a `file:line`, the conditions 
 
 You can also just ask — "review my changes", "check this branch for security issues" — and the skill triggers on its own.
 
+`/baz:review` is the pre-push pass. The reviewers Baz runs on the pull request cover what a local diff can't: the AI Coding Guidelines reviewer enforces your `AGENTS.md`, `CLAUDE.md` and Cursor rules, the Spec Reviewer checks the change against its ticket and runs the app from the branch, Figma designs are passed to reviewers as visual context, and Merger returns a merge, reject or escalate verdict per pull request, approving only when a rule enables it. Fixer can commit a fix for any finding on the pull request.
+
 **The cross-repo checks require Baz to be connected.** If it isn't, the review won't silently shrink to a local one: for any change with an outward-facing surface (a changed signature, schema, event, or public export) it stops, names the symbols whose consumers it couldn't check, and withholds the merge verdict rather than implying coverage it doesn't have. Purely local changes — formatting, a private helper, a test-only edit — still review normally, since there's nothing cross-repo to miss.
 
 With `--fix` (or when you ask afterwards), it turns the findings into a task list, shows it, then works through it one finding at a time, running the project's tests and linter if there are any. It only edits the repo you have checked out; findings in other repos are reported, not edited.
