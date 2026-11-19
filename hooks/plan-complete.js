@@ -317,19 +317,38 @@ function extractPlan(hookInput, sid) {
   // own — that is the plan by definition, and it removes any question of which
   // carrier is current. Otherwise the private path, then the pre-upgrade /tmp
   // one, since a session already running when the plugin was upgraded still has
-  // its plan there. Only the file actually consumed is unlinked.
+  // its plan there.
+  //
+  // The private plan file is the agent's working copy and is NEVER unlinked
+  // here: the instruction below tells the agent to revise the plan by editing
+  // that file, and an Edit on a file we just deleted fails with "File does not
+  // exist", forcing a full rewrite (#68). It lives in the 0700 scratch dir;
+  // session-end.js and the reaper clean it up. Only a pre-upgrade copy in
+  // shared /tmp is consumed, since nothing should keep a plan there.
   const matched = toolWritesPlanFile(hookInput, `.baz-plan-${sid}.md`);
   if (matched && isOurPlanCarrier(matched)) {
     const content = safeReadFile(matched);
     if (content !== null && content.length > 0) {
-      safeUnlink(matched);
+      consumeIfLegacy(matched);
       return normalizePlan(content);
     }
   }
   const found = readScratchFile('plan', sid, 'md');
   if (!found) return null;
-  safeUnlink(found.path);
+  consumeIfLegacy(found.path);
   return normalizePlan(found.content);
+}
+
+// Unlink a plan carrier only when it sits outside the private scratch dir —
+// i.e. the pre-upgrade copy in shared /tmp.
+function consumeIfLegacy(p) {
+  const dir = scratchDir();
+  let inPrivate = false;
+  try {
+    inPrivate = !!dir &&
+      fs.realpathSync(path.dirname(path.resolve(p))) === fs.realpathSync(dir);
+  } catch {}
+  if (!inPrivate) safeUnlink(p);
 }
 
 // --- Repos related to the plan ----------------------------------------------
