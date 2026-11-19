@@ -352,6 +352,35 @@ test('a legacy plan is consumed and reaches the instruction', ({ env }) => {
   }
 });
 
+// #68: the instruction says "edit the plan file and this hook re-runs", so the
+// private plan file must survive the hook, and an edit must re-fire with the
+// revised text.
+for (const vendor of ['claude-code', 'codex']) {
+  test(`the private plan file survives the hook and a revision re-fires (${vendor})`, ({ env }) => {
+    const dir = scratchDirFor(env);
+    const plan = path.join(dir, '.baz-plan-keep1.md');
+    const fire = (tool) => runHook('plan-complete.js', {
+      session_id: 'keep1',
+      cwd: process.cwd(),
+      tool_name: tool,
+      tool_input: { file_path: plan },
+    }, { env, vendor });
+    fs.writeFileSync(plan, '# first draft\n');
+    const first = fire('Write');
+    assert.ok(first.stdout.length > 0, 'first fire emitted nothing');
+    assert.ok(fs.existsSync(plan), 'plan file deleted after Write; Edit would fail');
+    fs.writeFileSync(plan, '# revised draft\n');
+    const second = fire('Edit');
+    assert.ok(second.stdout.length > 0, 'revision did not re-fire');
+    assert.ok(fs.existsSync(plan), 'plan file deleted after Edit');
+    const carrier = vendor === 'claude-code'
+      ? fs.readFileSync(path.join(dir, '.baz-plan-pending-keep1.json'), 'utf8')
+      : second.stdout;
+    assert.match(carrier, /revised draft/, 'revision did not reach the upload');
+    assert.doesNotMatch(carrier, /first draft/);
+  });
+}
+
 test('token tallies in both namespaces are summed, and survive a revision', ({ env }) => {
   const dir = scratchDirFor(env);
   const legacy = path.join('/tmp', '.baz-tokens-tok1.json');
