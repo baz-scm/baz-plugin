@@ -22,7 +22,7 @@ The two-step structure is *your* procedure, not something the user needs to hear
 
 Claude Code may list the baz tools below as `mcp__plugin_baz_baz__<tool>` rather than `mcp__baz__<tool>`; they are the same tools.
 
-`mcp__baz__get_plan_comments` takes one argument, `planId` — the UUID in the plan URL `https://baz.co/plans/<planId>`.
+`mcp__baz__get_plan_comments` takes one argument, `planId` — the UUID in the plan URL `https://baz.ai/plans/<planId>`.
 
 A plan pushed by an agent session is stored under that session's id, so the two are the same UUID:
 
@@ -95,7 +95,7 @@ Report the result the same way — short. One line per comment, then the link:
 ✅ **1** Added a Role re-apply step to Change sequence 4 · replied to Dana
 💬 **2** Pushed back — kept webhooks · replied to Sam
 
-📋 [Updated plan](https://baz.co/plans/<id>) · v3
+📋 [Updated plan](https://baz.ai/plans/<id>) · v3
 ```
 
 ## Rules

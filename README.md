@@ -36,7 +36,7 @@ Cursor doesn't auto-install MCP servers. Two manual steps:
      "mcpServers": {
        "baz": {
          "type": "http",
-         "url": "https://baz.co/mcp"
+         "url": "https://baz.ai/mcp"
        }
      }
    }
@@ -79,7 +79,7 @@ Once a plan is written, the agent asks whether to upload it to Baz. **The plan i
 
 ```text
 /baz:get-plan-comments                                   # this session's plan
-/baz:get-plan-comments https://baz.co/plans/<plan-id>    # any other plan
+/baz:get-plan-comments https://baz.ai/plans/<plan-id>    # any other plan
 ```
 
 | Platform | How to invoke |

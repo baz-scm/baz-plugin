@@ -174,6 +174,6 @@ Consent is asked **once** per session. The hook fires on every plan-file write, 
 
 ## MCP server
 
-All three platforms wire `https://baz.co/mcp` as an HTTP MCP server named `baz`. OAuth (Descope) opens on first use.
+All three platforms wire `https://baz.ai/mcp` as an HTTP MCP server named `baz`. OAuth (Descope) opens on first use.
 
 **Claude Code names the bundled server's tools `mcp__plugin_baz_baz__<tool>`**, not `mcp__baz__<tool>` — the short form only appears when `baz` is configured as a standalone server, and on Codex/Cursor. Every Claude Code matcher accepts both (`mcp__(plugin_baz_)?baz__…`), and hook code parses names through `bazToolName()` in `hook-io.js`, never a string split. Matchers written for the short form alone silently stopped `plan-attach.js` and `post-tool-use.js` from firing: the agent re-typed the whole plan into `update_plan` and uploads lost their searched-repo attribution, while every test stayed green because every payload used the short form. The `tool names` tests in `tests/hooks.test.js` run both forms through the real manifest matchers.
