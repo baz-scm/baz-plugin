@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.3](https://github.com/baz-scm/baz-plugin/compare/v0.15.2...v0.15.3) (2026-11-19)
+
+
+### Bug Fixes
+
+* **hooks:** keep the plan file editable after the completion hook ([#69](https://github.com/baz-scm/baz-plugin/issues/69)) ([b9aa660](https://github.com/baz-scm/baz-plugin/commit/b9aa660ee3af27f3ad786fc5190e72607dae77ad))
+* point MCP server and links at baz.ai (CR-5933) ([#65](https://github.com/baz-scm/baz-plugin/issues/65)) ([e6fac24](https://github.com/baz-scm/baz-plugin/commit/e6fac241a8158cfa538752e631a846bd9bef364b))
+
 ## [0.15.2](https://github.com/baz-scm/baz-plugin/compare/v0.15.1...v0.15.2) (2026-10-06)
 
 
